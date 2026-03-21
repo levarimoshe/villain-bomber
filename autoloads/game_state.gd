@@ -21,6 +21,13 @@ var rapid_fire_timer: float = 0.0
 var has_mega_bomb: bool = false
 var mega_bomb_timer: float = 0.0
 
+# ---- Nuke charge ----
+var nuke_charge: float = 0.0  # 0.0 to 1.0
+var nuke_ready: bool = false
+const NUKE_CHARGE_PER_KILL: float = 0.12  # ~8 kills to fully charge
+const NUKE_BLAST_RADIUS: float = 250.0
+const NUKE_SCALE: float = 3.0
+
 # ---- Invulnerability ----
 var is_invulnerable: bool = false
 var invulnerability_timer: float = 0.0
@@ -88,6 +95,8 @@ func reset() -> void:
 	total_bombs_dropped = 0
 	combo_count = 0
 	combo_timer = 0.0
+	nuke_charge = 0.0
+	nuke_ready = false
 	has_shield = false
 	has_rapid_fire = false
 	has_mega_bomb = false
@@ -117,6 +126,16 @@ func register_kill() -> void:
 	Events.combo_updated.emit(combo_count, mult)
 	if mult >= 2:
 		SoundManager.play_combo()
+	# Charge the nuke meter
+	if not nuke_ready:
+		nuke_charge = minf(nuke_charge + NUKE_CHARGE_PER_KILL, 1.0)
+		if nuke_charge >= 1.0:
+			nuke_ready = true
+
+
+func use_nuke() -> void:
+	nuke_charge = 0.0
+	nuke_ready = false
 
 
 func get_combo_multiplier() -> int:

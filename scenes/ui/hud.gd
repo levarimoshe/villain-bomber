@@ -65,6 +65,9 @@ func _draw() -> void:
 	if GameState.has_mega_bomb:
 		_draw_power_status(Vector2(status_x, status_y), "MEGA", Color(1, 0.2, 0.1), GameState.mega_bomb_timer / 8.0)
 
+	# === NUKE CHARGE METER (bottom center) ===
+	_draw_nuke_meter()
+
 	# === KILL COUNTER (bottom left) ===
 	var font2: Font = ThemeDB.fallback_font
 	var kill_text: String = "KILLS: %d" % GameState.total_villains_killed
@@ -150,6 +153,58 @@ func _on_combo_updated(count: int, mult: int) -> void:
 
 func _on_power_up_collected(_type: String) -> void:
 	pass
+
+
+func _draw_nuke_meter() -> void:
+	var bar_w: float = 200.0
+	var bar_h: float = 22.0
+	var bar_x: float = size.x / 2.0 - bar_w / 2.0
+	var bar_y: float = size.y - 45.0
+	var charge: float = GameState.nuke_charge
+	var ready: bool = GameState.nuke_ready
+
+	# Background
+	draw_rect(Rect2(bar_x - 2, bar_y - 2, bar_w + 4, bar_h + 4), Color(0, 0, 0, 0.6))
+
+	# Fill — orange to red gradient
+	if charge > 0:
+		var fill_color := Color(1, 0.5, 0.0).lerp(Color(1, 0.15, 0.0), charge)
+		draw_rect(Rect2(bar_x, bar_y, bar_w * charge, bar_h), fill_color)
+
+	# Border
+	var border_color := Color(0.5, 0.5, 0.5, 0.5)
+	if ready:
+		var pulse: float = 0.5 + 0.5 * sin(warning_flash * 6.0)
+		border_color = Color(1, 0.3, 0.0, pulse)
+	draw_rect(Rect2(bar_x - 2, bar_y - 2, bar_w + 4, bar_h + 4), border_color, false, 2.0)
+
+	# Label
+	var font: Font = ThemeDB.fallback_font
+	if ready:
+		var pulse_alpha: float = 0.7 + 0.3 * sin(warning_flash * 6.0)
+		draw_string(font, Vector2(bar_x + 10, bar_y + 16), "NUKE READY! FLY FAST + BOMB!", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 0.8, 0.1, pulse_alpha))
+	else:
+		draw_string(font, Vector2(bar_x + bar_w / 2 - 30, bar_y + 16), "NUKE CHARGE", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.8, 0.8, 0.8, 0.6))
+
+	# Nuke icon
+	if ready:
+		var icon_x: float = bar_x - 25
+		var icon_y: float = bar_y + bar_h / 2.0
+		var glow_pulse: float = 0.5 + 0.5 * sin(warning_flash * 5.0)
+		_draw_circle_at(Vector2(icon_x, icon_y), 12.0, Color(1, 0.3, 0, glow_pulse * 0.4))
+		_draw_circle_at(Vector2(icon_x, icon_y), 8.0, Color(1, 0.5, 0, glow_pulse * 0.7))
+		_draw_circle_at(Vector2(icon_x, icon_y), 4.0, Color(1, 0.9, 0.3, 1.0))
+
+
+func _draw_circle_at(pos: Vector2, radius: float, color: Color) -> void:
+	if radius < 0.5:
+		return
+	var points := PackedVector2Array()
+	var segs: int = 12
+	for i_c in range(segs + 1):
+		var a: float = float(i_c) / float(segs) * TAU
+		points.append(pos + Vector2(cos(a) * radius, sin(a) * radius))
+	draw_colored_polygon(points, color)
 
 
 func _update_escape_bar() -> void:

@@ -64,7 +64,12 @@ func _physics_process(delta: float) -> void:
 	# Bomb input — respect rapid fire power-up
 	var cooldown_ready: bool = can_drop_bomb or GameState.has_rapid_fire
 	if Input.is_action_just_pressed(&"drop_bomb") and cooldown_ready:
-		_drop_bomb()
+		# Check if nuke is ready AND we're going fast
+		var going_fast: bool = velocity.x > 350.0
+		if GameState.nuke_ready and going_fast:
+			_drop_nuke()
+		else:
+			_drop_bomb()
 
 	# Calculate crosshair position (where bomb would land)
 	_update_crosshair()
@@ -105,6 +110,19 @@ func _drop_bomb() -> void:
 		bomb.speed_scale = bomb_scale
 		Events.bomb_dropped.emit(bomb)
 
+	SoundManager.play_bomb_drop()
+
+
+func _drop_nuke() -> void:
+	can_drop_bomb = false
+	bomb_cooldown.start()
+	GameState.use_nuke()
+	var bomb := BombScene.instantiate()
+	bomb.global_position = bomb_drop_point.global_position
+	bomb.initial_velocity = Vector2(velocity.x * 0.8, 30.0)
+	bomb.speed_scale = GameState.NUKE_SCALE
+	bomb.is_nuke = true
+	Events.bomb_dropped.emit(bomb)
 	SoundManager.play_bomb_drop()
 
 

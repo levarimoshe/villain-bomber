@@ -188,11 +188,16 @@ func _on_bomb_hit_ground(pos: Vector2) -> void:
 	var bomb_scale: float = 1.0
 	if GameState.has_meta(&"last_bomb_scale"):
 		bomb_scale = GameState.get_meta(&"last_bomb_scale")
+	var was_nuke: bool = false
+	if GameState.has_meta(&"last_bomb_nuke"):
+		was_nuke = GameState.get_meta(&"last_bomb_nuke")
 
 	_spawn_explosion(pos, bomb_scale)
 
-	# Blast radius scales with speed AND mega bomb
+	# Nuke gets massive radius, otherwise normal scaling
 	var base_radius: float = 65.0 if not GameState.has_mega_bomb else 130.0
+	if was_nuke:
+		base_radius = GameState.NUKE_BLAST_RADIUS
 	var blast_radius: float = base_radius * bomb_scale
 	for villain in villains_container.get_children():
 		if villain.has_method("hit_by_bomb") and not villain.is_dying:
