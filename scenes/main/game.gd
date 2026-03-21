@@ -111,19 +111,26 @@ func _spawn_villain() -> void:
 	var spawn_x := cam_x + 750.0
 	var ground_y_at_spawn := _get_ground_y_approx(spawn_x)
 	villain.global_position = Vector2(spawn_x, ground_y_at_spawn)
-	villain.speed = 80.0 * GameState.villain_speed_multiplier
+	villain.speed = randf_range(90.0, 140.0) * GameState.villain_speed_multiplier
 	villain.direction = -1
 	villain.camera_ref = camera
 	villains_container.add_child(villain)
 
-	# Sometimes spawn a second villain
-	if randf() < 0.25:
-		var villain2 := VillainScene.instantiate()
-		villain2.global_position = Vector2(spawn_x + randf_range(30, 80), ground_y_at_spawn)
-		villain2.speed = randf_range(60.0, 100.0) * GameState.villain_speed_multiplier
-		villain2.direction = -1
-		villain2.camera_ref = camera
-		villains_container.add_child(villain2)
+	# Group spawns — more likely at higher levels
+	var extra_count: int = 0
+	var group_chance: float = 0.4 + GameState.current_level * 0.08
+	if randf() < group_chance:
+		extra_count = 1
+	if randf() < group_chance * 0.4:
+		extra_count = 2
+
+	for e in range(extra_count):
+		var extra := VillainScene.instantiate()
+		extra.global_position = Vector2(spawn_x + randf_range(30, 100) * (e + 1), ground_y_at_spawn)
+		extra.speed = randf_range(70.0, 130.0) * GameState.villain_speed_multiplier
+		extra.direction = -1
+		extra.camera_ref = camera
+		villains_container.add_child(extra)
 
 
 func _on_bomb_dropped(bomb: Node2D) -> void:
@@ -182,6 +189,13 @@ func _spawn_explosion(pos: Vector2) -> void:
 	explosions_container.add_child(explosion)
 	screen_shake_amount = 8.0
 	SoundManager.play_explosion()
+
+	# Spawn lingering ground fire
+	var FireScript: GDScript = preload("res://scenes/explosion/ground_fire.gd")
+	var fire := Node2D.new()
+	fire.set_script(FireScript)
+	fire.global_position = pos
+	explosions_container.add_child(fire)
 
 
 func _start_level_transition() -> void:

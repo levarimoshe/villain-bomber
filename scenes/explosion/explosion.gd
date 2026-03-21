@@ -1,8 +1,8 @@
 extends Node2D
 
 var elapsed: float = 0.0
-var duration: float = 1.2
-var max_radius: float = 60.0
+var duration: float = 1.5
+var max_radius: float = 75.0
 var particles: Array = []
 var smoke_puffs: Array = []
 var sparks: Array = []
