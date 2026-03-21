@@ -7,7 +7,7 @@ var initial_velocity: Vector2 = Vector2.ZERO
 var current_velocity: Vector2 = Vector2.ZERO
 var trail_points: Array = []
 var speed_scale: float = 1.0
-var is_nuke: bool = false  # Super charged bomb
+var is_nuke: bool = false
 
 
 func _ready() -> void:
@@ -28,18 +28,16 @@ func _physics_process(delta: float) -> void:
 		var to_villain: Vector2 = nearest_villain.global_position - global_position
 		var desired_dir: Vector2 = to_villain.normalized()
 		var current_dir: Vector2 = current_velocity.normalized()
-		# Strong steering force — bombs really chase targets
 		var steer: Vector2 = (desired_dir - current_dir) * HOMING_STRENGTH
 		current_velocity += steer * current_velocity.length() * delta
-		# Extra horizontal pull toward target
 		var horizontal_pull: float = (nearest_villain.global_position.x - global_position.x) * 2.0 * delta
 		current_velocity.x += horizontal_pull
 
 	position += current_velocity * delta
 	rotation = current_velocity.angle() + PI / 2.0
 
-	trail_points.append(Vector2(global_position.x, global_position.y))
 	var max_trail: int = 12 if not is_nuke else 20
+	trail_points.append(Vector2(global_position.x, global_position.y))
 	if trail_points.size() > max_trail:
 		trail_points.remove_at(0)
 
@@ -51,13 +49,12 @@ func _physics_process(delta: float) -> void:
 
 func _find_nearest_villain() -> Node2D:
 	var best: Node2D = null
-	var best_dist: float = 400.0  # Max homing range
+	var best_dist: float = 400.0
 	for villain in get_tree().get_nodes_in_group(&"villains"):
 		if not is_instance_valid(villain):
 			continue
 		if villain.get("is_dying") == true:
 			continue
-		# Only home toward villains below and ahead
 		if villain.global_position.y < global_position.y:
 			continue
 		var dist: float = global_position.distance_to(villain.global_position)
@@ -69,15 +66,14 @@ func _find_nearest_villain() -> Node2D:
 
 func _on_body_entered(body: Node2D) -> void:
 	if body.is_in_group(&"ground"):
-		GameState.set_meta(&"last_bomb_scale", speed_scale)
-		GameState.set_meta(&"last_bomb_nuke", is_nuke)
-		Events.bomb_hit_ground.emit(global_position)
+		# Pass scale and nuke flag directly through the signal — no meta needed
+		Events.bomb_hit_ground.emit(global_position, speed_scale, is_nuke)
 		queue_free()
 
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group(&"villains") and area.has_method("hit_by_bomb"):
 		area.hit_by_bomb()
-		GameState.set_meta(&"last_bomb_scale", speed_scale)
-		GameState.set_meta(&"last_bomb_nuke", is_nuke)
+		# Still trigger ground explosion for area damage
+		Events.bomb_hit_ground.emit(global_position, speed_scale, is_nuke)
 		queue_free()

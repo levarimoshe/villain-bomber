@@ -23,6 +23,7 @@ config/features=PackedStringArray("4.6")
 GameState="*res://autoloads/game_state.gd"
 Events="*res://autoloads/events.gd"
 SoundManager="*res://autoloads/sound_manager.gd"
+Mission="*res://autoloads/mission.gd"
 
 [display]
 
@@ -71,6 +72,11 @@ drop_bomb={
 pause={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194305,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+machine_gun={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":77,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }
 

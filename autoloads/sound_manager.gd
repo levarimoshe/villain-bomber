@@ -11,6 +11,10 @@ var shield_break_stream: AudioStreamWAV
 var nuke_charge_stream: AudioStreamWAV
 
 
+var music_player: AudioStreamPlayer = null
+var music_playing: bool = false
+
+
 func _ready() -> void:
 	explosion_stream = _make_explosion()
 	bomb_drop_stream = _make_bomb_drop()
@@ -20,6 +24,33 @@ func _ready() -> void:
 	combo_stream = _make_combo()
 	shield_break_stream = _make_shield_break()
 	nuke_charge_stream = _make_nuke_charge()
+
+
+func start_music() -> void:
+	if music_playing:
+		return
+	music_playing = true
+	music_player = AudioStreamPlayer.new()
+	music_player.stream = _make_music()
+	music_player.volume_db = -12.0
+	music_player.bus = &"Master"
+	add_child(music_player)
+	music_player.play()
+	music_player.finished.connect(_on_music_finished)
+
+
+func stop_music() -> void:
+	music_playing = false
+	if music_player:
+		music_player.stop()
+		music_player.queue_free()
+		music_player = null
+
+
+func _on_music_finished() -> void:
+	if music_playing and music_player:
+		music_player.stream = _make_music()
+		music_player.play()
 
 
 func play_explosion() -> void:
@@ -278,3 +309,66 @@ func _make_nuke_charge() -> AudioStreamWAV:
 	s2.mix_rate = sample_rate
 	s2.data = data
 	return s2
+
+
+func _make_music() -> AudioStreamWAV:
+	var sample_rate := 22050
+	var bpm := 120.0
+	var beats := 16  # 16 beats = 8 seconds
+	var beat_len: float = 60.0 / bpm
+	var duration: float = beat_len * float(beats)
+	var num_samples := int(sample_rate * duration)
+	var data := PackedByteArray()
+	data.resize(num_samples * 2)
+
+	# Notes for a simple military march melody (frequencies in Hz)
+	var melody: Array = [220, 0, 262, 0, 330, 294, 262, 0, 220, 0, 330, 294, 262, 220, 196, 0]
+	var bass_notes: Array = [110, 110, 130, 130, 110, 110, 98, 98, 110, 110, 130, 130, 146, 130, 110, 110]
+
+	for i in range(num_samples):
+		var t: float = float(i) / float(sample_rate)
+		var beat: int = int(t / beat_len) % beats
+		var beat_t: float = fmod(t, beat_len) / beat_len
+
+		var sample: float = 0.0
+
+		# Bass drum on beats 0, 4, 8, 12
+		if beat % 4 == 0:
+			var kick_t: float = beat_t * beat_len
+			if kick_t < 0.15:
+				var kick_env: float = exp(-kick_t * 25.0)
+				sample += sin(kick_t * 80.0 * TAU) * kick_env * 0.25
+
+		# Snare on beats 2, 6, 10, 14
+		if beat % 4 == 2:
+			var snare_t: float = beat_t * beat_len
+			if snare_t < 0.1:
+				sample += randf_range(-0.12, 0.12) * exp(-snare_t * 30.0)
+
+		# Hi-hat on every beat
+		var hh_t: float = beat_t * beat_len
+		if hh_t < 0.03:
+			sample += randf_range(-0.05, 0.05) * exp(-hh_t * 80.0)
+
+		# Melody
+		var mel_freq: int = melody[beat]
+		if mel_freq > 0:
+			var mel_env: float = maxf(0.0, 1.0 - beat_t * 1.5) * 0.15
+			sample += sin(t * float(mel_freq) * TAU) * mel_env
+			sample += sin(t * float(mel_freq) * 2.0 * TAU) * mel_env * 0.08
+
+		# Bass line
+		var bass_freq: int = bass_notes[beat]
+		sample += sin(t * float(bass_freq) * TAU) * 0.1
+
+		var value: int = clampi(int(sample * 28000.0), -32768, 32767)
+		data[i * 2] = value & 0xFF
+		data[i * 2 + 1] = (value >> 8) & 0xFF
+
+	var music := AudioStreamWAV.new()
+	music.format = AudioStreamWAV.FORMAT_16_BITS
+	music.mix_rate = sample_rate
+	music.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	music.loop_end = num_samples
+	music.data = data
+	return music

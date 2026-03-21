@@ -15,6 +15,7 @@ extends Node2D
 const VillainScene: PackedScene = preload("res://scenes/villain/villain.tscn")
 const ExplosionScene: PackedScene = preload("res://scenes/explosion/explosion.tscn")
 const BombScene: PackedScene = preload("res://scenes/bomb/bomb.tscn")
+const BossScript: GDScript = preload("res://scenes/boss/boss.gd")
 
 var screen_shake_amount: float = 0.0
 var screen_shake_decay: float = 0.9
@@ -68,6 +69,7 @@ func _on_game_started() -> void:
 	Events.score_changed.emit(0)
 	Events.lives_changed.emit(GameState.lives)
 	Events.level_changed.emit(1)
+	SoundManager.start_music()
 
 
 func _on_game_over() -> void:
@@ -76,6 +78,8 @@ func _on_game_over() -> void:
 	player.set_physics_process(false)
 	game_over_screen.show_game_over()
 	hud.visible = false
+	SoundManager.stop_music()
+	SoundManager.speak("Game over!")
 
 
 func _physics_process(delta: float) -> void:
@@ -194,27 +198,38 @@ func _on_player_hit() -> void:
 	SoundManager.play_hit()
 
 
-func _on_bomb_hit_ground(pos: Vector2) -> void:
-	# Get speed scale from the bomb that just hit
-	var bomb_scale: float = 1.0
-	if GameState.has_meta(&"last_bomb_scale"):
-		bomb_scale = GameState.get_meta(&"last_bomb_scale")
-	var was_nuke: bool = false
-	if GameState.has_meta(&"last_bomb_nuke"):
-		was_nuke = GameState.get_meta(&"last_bomb_nuke")
+func _on_bomb_hit_ground(pos: Vector2, bomb_scale: float, was_nuke: bool) -> void:
+	# Determine explosion visual scale and blast radius
+	var visual_scale: float = bomb_scale
+	var blast_radius: float
 
-	_spawn_explosion(pos, bomb_scale)
-
-	# Nuke gets massive radius, otherwise normal scaling
-	var base_radius: float = 65.0 if not GameState.has_mega_bomb else 130.0
 	if was_nuke:
-		base_radius = GameState.NUKE_BLAST_RADIUS
-	var blast_radius: float = base_radius * bomb_scale
+		# NUKE — kills everything on screen, massive explosion
+		blast_radius = 800.0
+		visual_scale = 5.0
+		screen_shake_amount = 20.0
+	else:
+		# Normal bomb — base 100px, scales with speed, mega bomb doubles
+		var base: float = 100.0
+		if GameState.has_mega_bomb:
+			base = 180.0
+		blast_radius = base * bomb_scale
+		visual_scale = maxf(bomb_scale, 1.2)  # Always a decent explosion
+
+	_spawn_explosion(pos, visual_scale)
+
+	# Kill all villains in blast radius
+	var kill_count: int = 0
 	for villain in villains_container.get_children():
 		if villain.has_method("hit_by_bomb") and not villain.is_dying:
 			var dist: float = villain.global_position.distance_to(pos)
 			if dist < blast_radius:
 				villain.hit_by_bomb()
+				kill_count += 1
+
+	# Nuke voice feedback
+	if was_nuke and kill_count > 0:
+		SoundManager.speak("%d enemies destroyed!" % kill_count)
 
 
 func _spawn_explosion(pos: Vector2, scale_factor: float = 1.0) -> void:
@@ -255,6 +270,10 @@ func _finish_level_transition() -> void:
 	level_label.visible = false
 	spawn_timer.wait_time = GameState.spawn_interval
 	spawn_timer.start()
+
+	# Spawn boss every 5 levels
+	if GameState.current_level % 5 == 0:
+		_spawn_boss()
 
 
 func _on_level_changed(_level: int) -> void:
@@ -334,6 +353,16 @@ func _spawn_sky_power_up() -> void:
 	pu.power_type = types[randi() % types.size()]
 	pu.from_sky = true
 	add_child(pu)
+
+
+func _spawn_boss() -> void:
+	var boss := Node2D.new()
+	boss.set_script(BossScript)
+	var cam_x: float = camera.global_position.x
+	var ground_y: float = _get_ground_y_approx(cam_x + 800)
+	boss.global_position = Vector2(cam_x + 800, ground_y - 10)
+	boss.camera_ref = camera
+	villains_container.add_child(boss)
 
 
 func _spawn_shield_break_effect(pos: Vector2) -> void:

@@ -18,7 +18,7 @@ signal combo_updated(combo_count: int, multiplier: int)
 signal bomb_dropped(bomb: Node2D)
 signal villain_killed(position: Vector2, points: int)
 signal villain_escaped
-signal bomb_hit_ground(position: Vector2)
+signal bomb_hit_ground(position: Vector2, bomb_scale: float, is_nuke: bool)
 signal player_hit
 signal power_up_collected(type: String)
 signal power_up_spawned(power_up: Node2D)

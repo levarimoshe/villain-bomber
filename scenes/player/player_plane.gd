@@ -11,12 +11,14 @@ extends CharacterBody2D
 @onready var bomb_drop_point: Marker2D = $BombDropPoint
 
 const BombScene: PackedScene = preload("res://scenes/bomb/bomb.tscn")
+const MachineGunScript: GDScript = preload("res://scenes/player/machine_gun_bullet.gd")
 
 var can_drop_bomb: bool = true
 var propeller_angle: float = 0.0
 var exhaust_particles: Array[Dictionary] = []
 var flash_timer: float = 0.0
 var crosshair_pos: Vector2 = Vector2.ZERO
+var mg_cooldown: float = 0.0
 
 
 func _ready() -> void:
@@ -70,6 +72,13 @@ func _physics_process(delta: float) -> void:
 			_drop_nuke()
 		else:
 			_drop_bomb()
+
+	# Machine gun (hold M, unlocks at level 3)
+	if GameState.current_level >= 3:
+		mg_cooldown -= delta
+		if Input.is_action_pressed(&"machine_gun") and mg_cooldown <= 0:
+			_fire_machine_gun()
+			mg_cooldown = 0.08  # Rapid fire
 
 	# Calculate crosshair position (where bomb would land)
 	_update_crosshair()
@@ -125,6 +134,14 @@ func _drop_nuke() -> void:
 	Events.bomb_dropped.emit(bomb)
 	SoundManager.play_bomb_drop()
 	SoundManager.speak("Nuke deployed!")
+
+
+func _fire_machine_gun() -> void:
+	var bullet := Node2D.new()
+	bullet.set_script(MachineGunScript)
+	bullet.global_position = global_position + Vector2(randf_range(-5, 5), 15)
+	bullet.velocity = Vector2(velocity.x * 0.3, 350)
+	get_tree().current_scene.add_child(bullet)
 
 
 func _update_crosshair() -> void:

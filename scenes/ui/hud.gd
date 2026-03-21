@@ -68,6 +68,22 @@ func _draw() -> void:
 	# === NUKE CHARGE METER (bottom center) ===
 	_draw_nuke_meter()
 
+	# === MISSION OBJECTIVE ===
+	if Mission.mission_active:
+		var font3: Font = ThemeDB.fallback_font
+		var mission_color := Color(0.3, 1.0, 0.3, 0.8) if not Mission.mission_complete else Color(1.0, 0.9, 0.2, 0.8)
+		var mission_text: String = Mission.current_mission
+		if Mission.mission_complete:
+			mission_text = "MISSION COMPLETE! +1000"
+		else:
+			mission_text += " (%d/%d)" % [Mission.mission_progress, Mission.mission_target]
+		draw_string(font3, Vector2(size.x / 2.0, 75), mission_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 16, mission_color)
+
+	# === MACHINE GUN HINT (level 3+) ===
+	if GameState.current_level >= 3:
+		var mg_font: Font = ThemeDB.fallback_font
+		draw_string(mg_font, Vector2(size.x / 2.0, size.y - 15), "Hold M: Machine Gun", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(0.6, 0.6, 0.6, 0.4))
+
 	# === KILL COUNTER (bottom left) ===
 	var font2: Font = ThemeDB.fallback_font
 	var kill_text: String = "KILLS: %d" % GameState.total_villains_killed
