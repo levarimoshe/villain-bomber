@@ -1,9 +1,10 @@
 extends Control
 
-@onready var score_label: Label = $ScoreLabel
-@onready var level_label: Label = $LevelLabel
-@onready var lives_container: HBoxContainer = $LivesContainer
-@onready var escape_bar: ColorRect = $EscapeBarBg/EscapeBarFill
+@onready var score_label: Label = $LeftPanel/VBox/ScoreLabel
+@onready var level_label: Label = $LeftPanel/VBox/LevelLabel
+@onready var lives_container: HBoxContainer = $RightPanel/VBox/LivesContainer
+@onready var escape_bar: ColorRect = $LeftPanel/VBox/EscapeBarBg/EscapeBarFill
+@onready var escape_label: Label = $LeftPanel/VBox/EscapeLabel
 
 var combo_display_timer: float = 0.0
 var combo_count: int = 0
@@ -29,18 +30,20 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	# === COMBO DISPLAY ===
+	# === COMBO DISPLAY (center screen, big) ===
 	if combo_display_timer > 0 and combo_multiplier >= 2:
 		var alpha: float = minf(combo_display_timer / 0.5, 1.0)
-		var pulse: float = 1.0 + sin(warning_flash * 8.0) * 0.1
+		var pulse: float = 1.0 + sin(warning_flash * 8.0) * 0.12
 		var font: Font = ThemeDB.fallback_font
 		var combo_text: String = "COMBO x%d!" % combo_multiplier
-		var font_size: int = int(36 * pulse)
-		var text_pos := Vector2(size.x / 2.0, 100)
+		var font_size: int = int(42 * pulse)
+		var text_pos := Vector2(size.x / 2.0, 120)
+		# Glow
+		draw_string(font, text_pos + Vector2(0, 1), combo_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size + 4, Color(1, 0.5, 0, alpha * 0.3))
 		# Shadow
-		draw_string(font, text_pos + Vector2(2, 2), combo_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(0, 0, 0, alpha * 0.6))
+		draw_string(font, text_pos + Vector2(2, 3), combo_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(0, 0, 0, alpha * 0.7))
 		# Main text
-		var combo_color := Color(1, 0.8, 0.1, alpha) if combo_multiplier < 4 else Color(1, 0.3, 0.1, alpha)
+		var combo_color := Color(1, 0.85, 0.15, alpha) if combo_multiplier < 4 else Color(1, 0.25, 0.1, alpha)
 		draw_string(font, text_pos, combo_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, combo_color)
 
 	# === BULLET WARNING ARROWS ===
@@ -50,21 +53,22 @@ func _draw() -> void:
 		if camera:
 			_draw_bullet_warnings(player_node, camera)
 
-	# === POWER-UP STATUS ===
-	var status_y: float = 80.0
+	# === POWER-UP STATUS (right side, below lives) ===
+	var status_x: float = size.x - 85
+	var status_y: float = 110.0
 	if GameState.has_shield:
-		_draw_power_status(Vector2(size.x - 40, status_y), "SH", Color(0.2, 0.5, 1.0), GameState.shield_timer / 5.0)
-		status_y += 25
+		_draw_power_status(Vector2(status_x, status_y), "SHIELD", Color(0.2, 0.5, 1.0), GameState.shield_timer / 5.0)
+		status_y += 28
 	if GameState.has_rapid_fire:
-		_draw_power_status(Vector2(size.x - 40, status_y), "RF", Color(1, 0.8, 0.1), GameState.rapid_fire_timer / 4.0)
-		status_y += 25
+		_draw_power_status(Vector2(status_x, status_y), "RAPID", Color(1, 0.8, 0.1), GameState.rapid_fire_timer / 4.0)
+		status_y += 28
 	if GameState.has_mega_bomb:
-		_draw_power_status(Vector2(size.x - 40, status_y), "MB", Color(1, 0.2, 0.1), GameState.mega_bomb_timer / 8.0)
+		_draw_power_status(Vector2(status_x, status_y), "MEGA", Color(1, 0.2, 0.1), GameState.mega_bomb_timer / 8.0)
 
-	# === KILL COUNTER ===
+	# === KILL COUNTER (bottom left) ===
 	var font2: Font = ThemeDB.fallback_font
 	var kill_text: String = "KILLS: %d" % GameState.total_villains_killed
-	draw_string(font2, Vector2(20, 95), kill_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.7, 0.7, 0.7, 0.7))
+	draw_string(font2, Vector2(24, size.y - 20), kill_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.8, 0.8, 0.8, 0.5))
 
 
 func _draw_bullet_warnings(player_node: Node, camera: Camera2D) -> void:
@@ -77,26 +81,28 @@ func _draw_bullet_warnings(player_node: Node, camera: Camera2D) -> void:
 		var dist: float = child.global_position.distance_to(player_node.global_position)
 		if dist < 250 and dist > 20:
 			var dir: Vector2 = (child.global_position - player_node.global_position).normalized()
-			# Convert to screen space
 			var screen_pos: Vector2 = (player_node.global_position - cam_pos + viewport_size / 2)
-			var arrow_pos: Vector2 = screen_pos + dir * 60
+			var arrow_pos: Vector2 = screen_pos + dir * 65
 			var blink: float = 0.5 + 0.5 * sin(warning_flash * 12.0)
-			# Draw warning triangle
 			var perp := Vector2(-dir.y, dir.x)
-			var tip: Vector2 = arrow_pos + dir * 12
-			var base_l: Vector2 = arrow_pos - dir * 4 + perp * 6
-			var base_r: Vector2 = arrow_pos - dir * 4 - perp * 6
-			draw_colored_polygon(PackedVector2Array([tip, base_l, base_r]), Color(1, 0.1, 0.1, blink * 0.7))
+			var tip: Vector2 = arrow_pos + dir * 14
+			var base_l: Vector2 = arrow_pos - dir * 5 + perp * 7
+			var base_r: Vector2 = arrow_pos - dir * 5 - perp * 7
+			draw_colored_polygon(PackedVector2Array([tip, base_l, base_r]), Color(1, 0.1, 0.1, blink * 0.8))
 
 
 func _draw_power_status(pos: Vector2, label_text: String, color: Color, fill: float) -> void:
+	var w: float = 70.0
+	var h: float = 18.0
 	# Background
-	draw_rect(Rect2(pos.x - 15, pos.y - 8, 30, 16), Color(0, 0, 0, 0.4))
+	draw_rect(Rect2(pos.x - 2, pos.y - 2, w + 4, h + 4), Color(0, 0, 0, 0.5))
 	# Fill bar
-	draw_rect(Rect2(pos.x - 14, pos.y - 7, 28 * fill, 14), Color(color.r, color.g, color.b, 0.6))
+	draw_rect(Rect2(pos.x, pos.y, w * clampf(fill, 0, 1), h), Color(color.r, color.g, color.b, 0.65))
+	# Border
+	draw_rect(Rect2(pos.x - 2, pos.y - 2, w + 4, h + 4), Color(color.r, color.g, color.b, 0.4), false, 1.0)
 	# Label
 	var font: Font = ThemeDB.fallback_font
-	draw_string(font, Vector2(pos.x - 8, pos.y + 4), label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.WHITE)
+	draw_string(font, Vector2(pos.x + 4, pos.y + 13), label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.WHITE)
 
 
 func _on_game_started() -> void:
@@ -120,8 +126,10 @@ func _on_lives_changed(new_lives: int) -> void:
 	for i in range(new_lives):
 		var heart := Label.new()
 		heart.text = "♥"
-		heart.add_theme_font_size_override("font_size", 28)
-		heart.add_theme_color_override("font_color", Color.RED)
+		heart.add_theme_font_size_override("font_size", 32)
+		heart.add_theme_color_override("font_color", Color(1, 0.15, 0.15))
+		heart.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+		heart.add_theme_constant_override("outline_size", 3)
 		lives_container.add_child(heart)
 
 
@@ -141,10 +149,11 @@ func _on_combo_updated(count: int, mult: int) -> void:
 
 
 func _on_power_up_collected(_type: String) -> void:
-	pass  # Visual handled by _draw
+	pass
 
 
 func _update_escape_bar() -> void:
 	var fill: float = float(GameState.escapes_this_life) / float(GameState.ESCAPE_THRESHOLD)
 	escape_bar.scale.x = clampf(fill, 0.0, 1.0)
 	escape_bar.color = Color.GREEN.lerp(Color.RED, fill)
+	escape_label.text = "THREAT: %d/%d" % [GameState.escapes_this_life, GameState.ESCAPE_THRESHOLD]
