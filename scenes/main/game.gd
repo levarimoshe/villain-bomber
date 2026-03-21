@@ -18,6 +18,7 @@ const BombScene: PackedScene = preload("res://scenes/bomb/bomb.tscn")
 
 var screen_shake_amount: float = 0.0
 var screen_shake_decay: float = 0.9
+var power_up_rain_timer: float = 5.0
 
 
 func _ready() -> void:
@@ -100,6 +101,13 @@ func _physics_process(delta: float) -> void:
 	var ground_y := 590.0
 	ground_collider.global_position = Vector2(camera.global_position.x, ground_y)
 
+	# Power-up rain from the sky every 5-10 seconds
+	if GameState.game_phase == &"playing":
+		power_up_rain_timer -= delta
+		if power_up_rain_timer <= 0:
+			power_up_rain_timer = randf_range(5.0, 10.0)
+			_spawn_sky_power_up()
+
 
 func _spawn_villain() -> void:
 	if GameState.game_phase != &"playing":
@@ -145,6 +153,9 @@ func _on_villain_killed(pos: Vector2, points: int) -> void:
 	GameState.add_score(points)
 	var multiplier: int = GameState.get_combo_multiplier()
 	_spawn_score_popup(pos, points * multiplier)
+
+	# Spawn a mini explosion at the villain's death position
+	_spawn_villain_death_effect(pos)
 
 	# Chance to spawn power-up
 	if randf() < 0.12:
@@ -275,6 +286,28 @@ func _spawn_power_up(pos: Vector2) -> void:
 	var types: Array = ["shield", "rapid_fire", "mega_bomb"]
 	pu.power_type = types[randi() % types.size()]
 	add_child(pu)
+
+
+func _spawn_sky_power_up() -> void:
+	var PowerUpScript: GDScript = preload("res://scenes/powerup/powerup.gd")
+	var pu := Node2D.new()
+	pu.set_script(PowerUpScript)
+	# Spawn above the camera view, ahead of the player
+	var cam_x: float = camera.global_position.x
+	pu.global_position = Vector2(cam_x + randf_range(-200, 400), -30)
+	var types: Array = ["shield", "rapid_fire", "mega_bomb"]
+	pu.power_type = types[randi() % types.size()]
+	pu.from_sky = true
+	add_child(pu)
+
+
+func _spawn_villain_death_effect(pos: Vector2) -> void:
+	# Mini explosion at villain position
+	var VillainDeathScript: GDScript = preload("res://scenes/explosion/villain_death_fx.gd")
+	var fx := Node2D.new()
+	fx.set_script(VillainDeathScript)
+	fx.global_position = pos
+	explosions_container.add_child(fx)
 
 
 func _get_ground_y_approx(world_x: float) -> float:
