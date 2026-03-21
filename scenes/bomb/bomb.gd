@@ -1,7 +1,7 @@
 extends Area2D
 
 const GRAVITY: float = 420.0
-const HOMING_STRENGTH: float = 1.8
+const HOMING_STRENGTH: float = 4.5
 
 var initial_velocity: Vector2 = Vector2.ZERO
 var current_velocity: Vector2 = Vector2.ZERO
@@ -22,14 +22,18 @@ func _physics_process(delta: float) -> void:
 
 	current_velocity.y += GRAVITY * delta
 
-	# Homing — gently steer toward nearest villain
+	# Homing — aggressively steer toward nearest villain
 	var nearest_villain: Node2D = _find_nearest_villain()
-	if nearest_villain and current_velocity.y > 0:
+	if nearest_villain and current_velocity.y > 50:
 		var to_villain: Vector2 = nearest_villain.global_position - global_position
 		var desired_dir: Vector2 = to_villain.normalized()
 		var current_dir: Vector2 = current_velocity.normalized()
+		# Strong steering force — bombs really chase targets
 		var steer: Vector2 = (desired_dir - current_dir) * HOMING_STRENGTH
 		current_velocity += steer * current_velocity.length() * delta
+		# Extra horizontal pull toward target
+		var horizontal_pull: float = (nearest_villain.global_position.x - global_position.x) * 2.0 * delta
+		current_velocity.x += horizontal_pull
 
 	position += current_velocity * delta
 	rotation = current_velocity.angle() + PI / 2.0

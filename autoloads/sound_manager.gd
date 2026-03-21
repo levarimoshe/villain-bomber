@@ -7,6 +7,8 @@ var shoot_stream: AudioStreamWAV
 var hit_stream: AudioStreamWAV
 var levelup_stream: AudioStreamWAV
 var combo_stream: AudioStreamWAV
+var shield_break_stream: AudioStreamWAV
+var nuke_charge_stream: AudioStreamWAV
 
 
 func _ready() -> void:
@@ -16,6 +18,8 @@ func _ready() -> void:
 	hit_stream = _make_hit()
 	levelup_stream = _make_levelup()
 	combo_stream = _make_combo()
+	shield_break_stream = _make_shield_break()
+	nuke_charge_stream = _make_nuke_charge()
 
 
 func play_explosion() -> void:
@@ -40,6 +44,14 @@ func play_levelup() -> void:
 
 func play_combo() -> void:
 	_play(combo_stream, -6.0)
+
+
+func play_shield_break() -> void:
+	_play(shield_break_stream, -3.0)
+
+
+func play_nuke_charge() -> void:
+	_play(nuke_charge_stream, -4.0)
 
 
 func _play(stream: AudioStreamWAV, volume_db: float = 0.0) -> void:
@@ -197,3 +209,56 @@ func _make_combo() -> AudioStreamWAV:
 	stream5.mix_rate = sample_rate
 	stream5.data = data
 	return stream5
+
+
+func _make_shield_break() -> AudioStreamWAV:
+	var sample_rate := 22050
+	var duration := 0.4
+	var num_samples := int(sample_rate * duration)
+	var data := PackedByteArray()
+	data.resize(num_samples * 2)
+
+	for i in range(num_samples):
+		var t: float = float(i) / float(sample_rate)
+		var envelope: float = exp(-t * 6.0)
+		# Glass breaking: high freq noise + descending crystal tone
+		var crystal: float = sin(t * 2000.0 * TAU * (1.0 - t * 0.5)) * 0.3
+		var glass: float = randf_range(-0.5, 0.5) * envelope
+		var shimmer: float = sin(t * 4000.0 * TAU) * envelope * 0.15
+		var sample: float = (crystal + glass + shimmer) * envelope
+		var value: int = clampi(int(sample * 28000.0), -32768, 32767)
+		data[i * 2] = value & 0xFF
+		data[i * 2 + 1] = (value >> 8) & 0xFF
+
+	var s1 := AudioStreamWAV.new()
+	s1.format = AudioStreamWAV.FORMAT_16_BITS
+	s1.mix_rate = sample_rate
+	s1.data = data
+	return s1
+
+
+func _make_nuke_charge() -> AudioStreamWAV:
+	var sample_rate := 22050
+	var duration := 0.8
+	var num_samples := int(sample_rate * duration)
+	var data := PackedByteArray()
+	data.resize(num_samples * 2)
+
+	for i in range(num_samples):
+		var t: float = float(i) / float(sample_rate)
+		var envelope: float = minf(t * 3.0, 1.0) * (1.0 - t / duration) * 0.5
+		# Rising dramatic tone — builds up tension
+		var freq: float = 150.0 + t * t * 800.0  # Accelerating rise
+		var sample: float = sin(t * freq * TAU) * envelope
+		sample += sin(t * freq * 2.0 * TAU) * envelope * 0.15
+		# Add rumble
+		sample += sin(t * 60.0 * TAU) * envelope * 0.3
+		var value: int = clampi(int(sample * 30000.0), -32768, 32767)
+		data[i * 2] = value & 0xFF
+		data[i * 2 + 1] = (value >> 8) & 0xFF
+
+	var s2 := AudioStreamWAV.new()
+	s2.format = AudioStreamWAV.FORMAT_16_BITS
+	s2.mix_rate = sample_rate
+	s2.data = data
+	return s2

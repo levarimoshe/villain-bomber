@@ -126,11 +126,18 @@ func register_kill() -> void:
 	Events.combo_updated.emit(combo_count, mult)
 	if mult >= 2:
 		SoundManager.play_combo()
-	# Charge the nuke meter
+	# Charge the nuke meter with sound feedback
 	if not nuke_ready:
+		var old_charge: float = nuke_charge
 		nuke_charge = minf(nuke_charge + NUKE_CHARGE_PER_KILL, 1.0)
+		# Play charge sound at each 25% threshold
+		var old_quarter: int = int(old_charge * 4.0)
+		var new_quarter: int = int(nuke_charge * 4.0)
+		if new_quarter > old_quarter:
+			SoundManager.play_nuke_charge()
 		if nuke_charge >= 1.0:
 			nuke_ready = true
+			SoundManager.play_levelup()  # Big sound when fully charged
 
 
 func use_nuke() -> void:

@@ -172,13 +172,24 @@ func _on_villain_escaped() -> void:
 func _on_player_hit() -> void:
 	if GameState.game_phase != &"playing":
 		return
-	if GameState.is_invulnerable or GameState.has_shield:
-		GameState.lose_life()  # Will be blocked by shield/invuln in game_state
+	if GameState.is_invulnerable:
+		return  # No effect during i-frames
+	if GameState.has_shield:
+		# Shield absorbs the hit — big visual feedback
+		GameState.has_shield = false
+		screen_shake_amount = 5.0
+		player.modulate = Color(0.3, 0.6, 1.0)  # Blue flash
+		var tween := create_tween()
+		tween.tween_property(player, "modulate", Color.WHITE, 0.4)
+		SoundManager.play_shield_break()
+		# Spawn shield break particles
+		_spawn_shield_break_effect(player.global_position)
 		return
+	# Actually take damage
 	screen_shake_amount = 12.0
 	player.modulate = Color.RED
-	var tween := create_tween()
-	tween.tween_property(player, "modulate", Color.WHITE, 0.3)
+	var tween2 := create_tween()
+	tween2.tween_property(player, "modulate", Color.WHITE, 0.3)
 	GameState.lose_life()
 	SoundManager.play_hit()
 
@@ -314,6 +325,14 @@ func _spawn_sky_power_up() -> void:
 	pu.power_type = types[randi() % types.size()]
 	pu.from_sky = true
 	add_child(pu)
+
+
+func _spawn_shield_break_effect(pos: Vector2) -> void:
+	var ShieldFX: GDScript = preload("res://scenes/explosion/shield_break_fx.gd")
+	var fx := Node2D.new()
+	fx.set_script(ShieldFX)
+	fx.global_position = pos
+	explosions_container.add_child(fx)
 
 
 func _spawn_villain_death_effect(pos: Vector2) -> void:
