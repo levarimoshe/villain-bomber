@@ -239,6 +239,7 @@ func _start_level_transition() -> void:
 	GameState.game_phase = &"level_transition"
 	spawn_timer.stop()
 	SoundManager.play_levelup()
+	SoundManager.speak("Level %d complete!" % GameState.current_level)
 	level_label.visible = true
 	level_label.text = "LEVEL %d COMPLETE!" % GameState.current_level
 
@@ -318,9 +319,17 @@ func _spawn_sky_power_up() -> void:
 	var PowerUpScript: GDScript = preload("res://scenes/powerup/powerup.gd")
 	var pu := Node2D.new()
 	pu.set_script(PowerUpScript)
-	# Spawn above the camera view, ahead of the player
+	# Spawn ahead OR behind the player (50/50 chance)
 	var cam_x: float = camera.global_position.x
-	pu.global_position = Vector2(cam_x + randf_range(-200, 400), -30)
+	var player_x: float = player.global_position.x
+	var spawn_x: float
+	if randf() < 0.5:
+		# Ahead of player
+		spawn_x = player_x + randf_range(100, 400)
+	else:
+		# Behind player — they need to slow down or it passes them
+		spawn_x = player_x + randf_range(-350, -50)
+	pu.global_position = Vector2(spawn_x, -30)
 	var types: Array = ["shield", "rapid_fire", "mega_bomb"]
 	pu.power_type = types[randi() % types.size()]
 	pu.from_sky = true

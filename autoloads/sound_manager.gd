@@ -54,6 +54,22 @@ func play_nuke_charge() -> void:
 	_play(nuke_charge_stream, -4.0)
 
 
+func speak(text: String) -> void:
+	# Use Godot's built-in Text-to-Speech
+	var voices: Array = DisplayServer.tts_get_voices()
+	var voice_id: String = ""
+	# Try to find an English voice
+	for v in voices:
+		var lang: String = v.get("language", "")
+		if lang.begins_with("en"):
+			voice_id = v.get("id", "")
+			break
+	if voice_id == "" and voices.size() > 0:
+		voice_id = voices[0].get("id", "")
+	if voice_id != "":
+		DisplayServer.tts_speak(text, voice_id, 80, 0.9, 1.2)
+
+
 func _play(stream: AudioStreamWAV, volume_db: float = 0.0) -> void:
 	var player := AudioStreamPlayer.new()
 	player.stream = stream

@@ -25,8 +25,8 @@ var mega_bomb_timer: float = 0.0
 var nuke_charge: float = 0.0  # 0.0 to 1.0
 var nuke_ready: bool = false
 const NUKE_CHARGE_PER_KILL: float = 0.12  # ~8 kills to fully charge
-const NUKE_BLAST_RADIUS: float = 250.0
-const NUKE_SCALE: float = 3.0
+const NUKE_BLAST_RADIUS: float = 800.0
+const NUKE_SCALE: float = 5.0
 
 # ---- Invulnerability ----
 var is_invulnerable: bool = false
@@ -135,9 +135,14 @@ func register_kill() -> void:
 		var new_quarter: int = int(nuke_charge * 4.0)
 		if new_quarter > old_quarter:
 			SoundManager.play_nuke_charge()
+			if new_quarter == 2:
+				SoundManager.speak("Fifty percent")
+			elif new_quarter == 3:
+				SoundManager.speak("Seventy five percent")
 		if nuke_charge >= 1.0:
 			nuke_ready = true
-			SoundManager.play_levelup()  # Big sound when fully charged
+			SoundManager.play_levelup()
+			SoundManager.speak("Nuke ready. Fly fast and drop it!")
 
 
 func use_nuke() -> void:
@@ -185,12 +190,15 @@ func activate_power_up(type: String) -> void:
 		"shield":
 			has_shield = true
 			shield_timer = 5.0
+			SoundManager.speak("Shield activated")
 		"rapid_fire":
 			has_rapid_fire = true
 			rapid_fire_timer = 4.0
+			SoundManager.speak("Rapid fire!")
 		"mega_bomb":
 			has_mega_bomb = true
 			mega_bomb_timer = 8.0
+			SoundManager.speak("Mega bomb!")
 	Events.power_up_collected.emit(type)
 
 

@@ -124,6 +124,7 @@ func _drop_nuke() -> void:
 	bomb.is_nuke = true
 	Events.bomb_dropped.emit(bomb)
 	SoundManager.play_bomb_drop()
+	SoundManager.speak("Nuke deployed!")
 
 
 func _update_crosshair() -> void:
