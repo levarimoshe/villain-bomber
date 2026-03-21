@@ -1,0 +1,73 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scenes/main/game.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/environment/scrolling_background.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/player/player_plane.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/ui/main_menu.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/ui/game_over.tscn" id="6"]
+
+[sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_ground"]
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1")
+
+[node name="ScrollingBackground" parent="." instance=ExtResource("2")]
+
+[node name="Entities" type="Node2D" parent="."]
+
+[node name="PlayerPlane" parent="Entities" instance=ExtResource("3")]
+position = Vector2(300, 250)
+
+[node name="Bombs" type="Node2D" parent="Entities"]
+
+[node name="Villains" type="Node2D" parent="Entities"]
+
+[node name="Explosions" type="Node2D" parent="Entities"]
+
+[node name="GroundCollider" type="StaticBody2D" parent="."]
+position = Vector2(0, 590)
+collision_layer = 8
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="GroundCollider"]
+shape = SubResource("WorldBoundaryShape2D_ground")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(640, 360)
+
+[node name="VillainSpawnTimer" type="Timer" parent="."]
+wait_time = 2.0
+
+[node name="HUDLayer" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="HUD" parent="HUDLayer" instance=ExtResource("4")]
+
+[node name="LevelTransitionLabel" type="Label" parent="HUDLayer"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -40.0
+offset_right = 300.0
+offset_bottom = 40.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 48
+theme_override_colors/font_color = Color(1, 1, 0.3, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+text = "LEVEL COMPLETE!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="UILayer" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="MainMenu" parent="UILayer" instance=ExtResource("5")]
+
+[node name="GameOver" parent="UILayer" instance=ExtResource("6")]
