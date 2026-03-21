@@ -5,6 +5,7 @@ const GRAVITY: float = 420.0
 var initial_velocity: Vector2 = Vector2.ZERO
 var current_velocity: Vector2 = Vector2.ZERO
 var trail_points: Array = []
+var speed_scale: float = 1.0  # Bigger = bigger explosion
 
 
 func _ready() -> void:
@@ -20,7 +21,6 @@ func _physics_process(delta: float) -> void:
 	position += current_velocity * delta
 	rotation = current_velocity.angle() + PI / 2.0
 
-	# Store trail positions
 	trail_points.append(Vector2(global_position.x, global_position.y))
 	if trail_points.size() > 12:
 		trail_points.remove_at(0)
@@ -34,10 +34,13 @@ func _physics_process(delta: float) -> void:
 func _on_body_entered(body: Node2D) -> void:
 	if body.is_in_group(&"ground"):
 		Events.bomb_hit_ground.emit(global_position)
+		# Store speed_scale on the game for the explosion to use
+		GameState.set_meta(&"last_bomb_scale", speed_scale)
 		queue_free()
 
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group(&"villains") and area.has_method("hit_by_bomb"):
 		area.hit_by_bomb()
+		GameState.set_meta(&"last_bomb_scale", speed_scale)
 		queue_free()

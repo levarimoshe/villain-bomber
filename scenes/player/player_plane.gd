@@ -77,14 +77,34 @@ func _drop_bomb() -> void:
 	if not GameState.has_rapid_fire:
 		bomb_cooldown.start()
 	else:
-		# Rapid fire: very short cooldown
-		bomb_cooldown.wait_time = 0.1
+		bomb_cooldown.wait_time = 0.12
 		bomb_cooldown.start()
-		bomb_cooldown.wait_time = 0.3  # Reset for normal
-	var bomb := BombScene.instantiate()
-	bomb.global_position = bomb_drop_point.global_position
-	bomb.initial_velocity = Vector2(velocity.x * 0.8, 30.0)
-	Events.bomb_dropped.emit(bomb)
+		bomb_cooldown.wait_time = 0.3
+
+	# Speed bonus — faster plane = bigger explosion
+	var speed_factor: float = clampf(absf(velocity.x) / 500.0, 0.0, 1.0)
+	var bomb_scale: float = 1.0 + speed_factor * 0.8  # Up to 1.8x blast radius at max speed
+
+	if GameState.has_rapid_fire:
+		# TRIPLE SPREAD — 3 bombs fan out from the plane
+		for i in range(3):
+			var bomb := BombScene.instantiate()
+			var offset_x: float = float(i - 1) * 15.0  # -15, 0, 15
+			var offset_y: float = abs(i - 1) * 5.0  # outer bombs slightly higher
+			bomb.global_position = bomb_drop_point.global_position + Vector2(offset_x, offset_y)
+			var spread_angle: float = float(i - 1) * 0.15  # Fan spread
+			var base_vel := Vector2(velocity.x * 0.8, 30.0)
+			bomb.initial_velocity = base_vel.rotated(spread_angle)
+			bomb.speed_scale = bomb_scale
+			Events.bomb_dropped.emit(bomb)
+	else:
+		# Single bomb
+		var bomb := BombScene.instantiate()
+		bomb.global_position = bomb_drop_point.global_position
+		bomb.initial_velocity = Vector2(velocity.x * 0.8, 30.0)
+		bomb.speed_scale = bomb_scale
+		Events.bomb_dropped.emit(bomb)
+
 	SoundManager.play_bomb_drop()
 
 

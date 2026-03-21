@@ -184,9 +184,16 @@ func _on_player_hit() -> void:
 
 
 func _on_bomb_hit_ground(pos: Vector2) -> void:
-	_spawn_explosion(pos)
-	# Check if any nearby villains are hit by the blast radius
-	var blast_radius: float = 65.0 if not GameState.has_mega_bomb else 130.0
+	# Get speed scale from the bomb that just hit
+	var bomb_scale: float = 1.0
+	if GameState.has_meta(&"last_bomb_scale"):
+		bomb_scale = GameState.get_meta(&"last_bomb_scale")
+
+	_spawn_explosion(pos, bomb_scale)
+
+	# Blast radius scales with speed AND mega bomb
+	var base_radius: float = 65.0 if not GameState.has_mega_bomb else 130.0
+	var blast_radius: float = base_radius * bomb_scale
 	for villain in villains_container.get_children():
 		if villain.has_method("hit_by_bomb") and not villain.is_dying:
 			var dist: float = villain.global_position.distance_to(pos)
@@ -194,18 +201,21 @@ func _on_bomb_hit_ground(pos: Vector2) -> void:
 				villain.hit_by_bomb()
 
 
-func _spawn_explosion(pos: Vector2) -> void:
+func _spawn_explosion(pos: Vector2, scale_factor: float = 1.0) -> void:
 	var explosion := ExplosionScene.instantiate()
 	explosion.global_position = pos
+	explosion.max_radius = 75.0 * scale_factor
+	explosion.scale = Vector2(scale_factor, scale_factor)
 	explosions_container.add_child(explosion)
-	screen_shake_amount = 8.0
+	screen_shake_amount = 8.0 * scale_factor
 	SoundManager.play_explosion()
 
-	# Spawn lingering ground fire
+	# Spawn lingering ground fire — scales with explosion
 	var FireScript: GDScript = preload("res://scenes/explosion/ground_fire.gd")
 	var fire := Node2D.new()
 	fire.set_script(FireScript)
 	fire.global_position = pos
+	fire.scale = Vector2(scale_factor, scale_factor)
 	explosions_container.add_child(fire)
 
 
