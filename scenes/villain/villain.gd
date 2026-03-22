@@ -25,9 +25,13 @@ func _ready() -> void:
 	else:
 		villain_type = randi() % 2
 	anim_time = randf() * TAU
-	shoot_interval = randf_range(1.0, 2.5)
-	shoot_timer = randf_range(0.2, 1.0)
-	can_shoot = randf() < (0.55 + GameState.current_level * 0.1)
+	# Fewer shooters at start, gradually more per level
+	var shoot_chance: float = minf(0.15 + GameState.current_level * 0.05, 0.6)
+	can_shoot = randf() < shoot_chance
+	# Shoot interval: slower at start, faster at higher levels
+	var base_interval: float = maxf(1.5, 3.5 - GameState.current_level * 0.1)
+	shoot_interval = randf_range(base_interval, base_interval + 2.0)
+	shoot_timer = randf_range(1.0, shoot_interval)
 
 
 func _physics_process(delta: float) -> void:

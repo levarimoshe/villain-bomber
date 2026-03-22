@@ -142,7 +142,9 @@ func _physics_process(delta: float) -> void:
 	if GameState.game_phase == &"playing":
 		power_up_rain_timer -= delta
 		if power_up_rain_timer <= 0:
-			power_up_rain_timer = randf_range(5.0, 10.0)
+			power_up_rain_timer = randf_range(4.0, 7.0)
+			if GameState.boss_active:
+				power_up_rain_timer = 5.0  # Guaranteed gifts during boss
 			_spawn_sky_power_up()
 
 
@@ -170,7 +172,7 @@ func _spawn_villain() -> void:
 				villain.direction = 1
 			var ground_y: float = _get_ground_y_approx(spawn_x)
 			villain.global_position = Vector2(spawn_x, ground_y)
-			villain.speed = randf_range(100.0, 170.0) * GameState.villain_speed_multiplier
+			villain.speed = randf_range(70.0, 120.0) * GameState.villain_speed_multiplier
 			villain.camera_ref = camera
 			villains_container.add_child(villain)
 		return
@@ -180,7 +182,7 @@ func _spawn_villain() -> void:
 	var spawn_x := cam_x + 750.0
 	var ground_y_at_spawn := _get_ground_y_approx(spawn_x)
 	villain.global_position = Vector2(spawn_x, ground_y_at_spawn)
-	villain.speed = randf_range(90.0, 140.0) * GameState.villain_speed_multiplier
+	villain.speed = randf_range(60.0, 110.0) * GameState.villain_speed_multiplier
 	villain.direction = -1
 	villain.camera_ref = camera
 	villains_container.add_child(villain)
@@ -196,7 +198,7 @@ func _spawn_villain() -> void:
 	for e in range(extra_count):
 		var extra := VillainScene.instantiate()
 		extra.global_position = Vector2(spawn_x + randf_range(30, 100) * (e + 1), ground_y_at_spawn)
-		extra.speed = randf_range(70.0, 130.0) * GameState.villain_speed_multiplier
+		extra.speed = randf_range(50.0, 100.0) * GameState.villain_speed_multiplier
 		extra.direction = -1
 		extra.camera_ref = camera
 		villains_container.add_child(extra)
@@ -219,7 +221,7 @@ func _on_villain_killed(pos: Vector2, points: int) -> void:
 	_spawn_villain_death_effect(pos)
 
 	# Chance to spawn power-up
-	if randf() < 0.12:
+	if randf() < 0.18:
 		_spawn_power_up(pos)
 
 	# Check level/arena progression

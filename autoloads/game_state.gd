@@ -59,10 +59,10 @@ const POINTS_MULTI_BONUS: int = 200
 const POINTS_LEVEL_BONUS: int = 500
 const EXTRA_LIFE_INTERVAL: int = 3000
 const ESCAPE_THRESHOLD: int = 10
-const BASE_SPAWN_INTERVAL: float = 1.2
-const MIN_SPAWN_INTERVAL: float = 0.35
-const SPAWN_DECAY: float = 0.82
-const SPEED_INCREASE_PER_LEVEL: float = 0.18
+const BASE_SPAWN_INTERVAL: float = 1.8
+const MIN_SPAWN_INTERVAL: float = 0.4
+const SPAWN_DECAY: float = 0.88
+const SPEED_INCREASE_PER_LEVEL: float = 0.12
 
 
 func _process(delta: float) -> void:

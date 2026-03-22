@@ -7,8 +7,8 @@ var health: int = 15
 var max_health: int = 15
 var is_dying: bool = false
 var camera_ref: Camera2D = null
-var shoot_timer: float = 1.0
-var shoot_interval: float = 0.8
+var shoot_timer: float = 2.0
+var shoot_interval: float = 1.8
 var anim_time: float = 0.0
 var flash_timer: float = 0.0
 var death_timer: float = 0.0
@@ -22,6 +22,9 @@ func _ready() -> void:
 	add_to_group(&"villains")
 	add_to_group(&"boss")
 	GameState.boss_active = true
+	# Boss gets faster at higher levels
+	shoot_interval = maxf(0.6, 1.8 - float(GameState.current_level) / 30.0)
+	shoot_timer = shoot_interval
 	SoundManager.speak("Boss incoming!")
 
 

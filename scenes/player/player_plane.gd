@@ -4,7 +4,7 @@ extends CharacterBody2D
 @export var vertical_speed: float = 220.0
 @export var min_y: float = 60.0
 @export var max_y: float = 420.0
-@export var turn_rate: float = 2.2  # Radians per second — how fast the plane turns
+@export var turn_rate: float = 1.4  # Radians per second — smooth wide arc
 
 @onready var visual: Node2D = $PlaneVisual
 @onready var bomb_cooldown: Timer = $BombCooldownTimer
@@ -77,7 +77,7 @@ func _physics_process(delta: float) -> void:
 		if absf(angle_diff) > max_turn:
 			move_angle += sign(angle_diff) * max_turn
 		else:
-			move_angle = lerpf(move_angle, target_angle, 0.05)
+			move_angle = lerpf(move_angle, target_angle, 0.03)
 
 		# Keep angle in range
 		move_angle = fmod(move_angle + TAU, TAU)
@@ -114,7 +114,7 @@ func _physics_process(delta: float) -> void:
 	# Bank into the turn — steeper when turning harder
 	var bank_amount: float = _angle_diff(move_angle, 0.0) * 0.15 * float(facing)
 	bank_amount += velocity.y * 0.0008
-	visual.rotation = lerp(visual.rotation, bank_amount, 0.12)
+	visual.rotation = lerp(visual.rotation, bank_amount, 0.06)
 
 	propeller_angle += delta * 30.0
 
