@@ -11,28 +11,24 @@ static func get_ground_y(world_x: float) -> float:
 
 
 func _draw() -> void:
-	# Far background hills (misty, dark)
+	var gc: Color = BiomeManager.get_ground_color()
+	var gd: Color = BiomeManager.get_ground_dark()
+	var ec: Color = BiomeManager.get_earth_color()
+
+	# Far background hills
 	_draw_hill_layer(TILE_WIDTH, GROUND_BASE_Y - 80.0, 70.0, 30.0, 0.003, 0.008,
-		Color(0.18, 0.35, 0.15, 0.5))
-
+		gd.darkened(0.15))
 	# Mid hills
-	_draw_hill_layer(TILE_WIDTH, GROUND_BASE_Y - 30.0, 55.0, 22.0, 0.004, 0.011,
-		Color(0.15, 0.42, 0.12))
-
-	# Main ground hills
-	_draw_hill_layer(TILE_WIDTH, GROUND_BASE_Y, HILL_AMPLITUDE, HILL_AMPLITUDE2, 0.005, 0.013,
-		Color(0.22, 0.55, 0.15))
-
-	# Lighter grass highlights on top
+	_draw_hill_layer(TILE_WIDTH, GROUND_BASE_Y - 30.0, 55.0, 22.0, 0.004, 0.011, gd)
+	# Main ground
+	_draw_hill_layer(TILE_WIDTH, GROUND_BASE_Y, HILL_AMPLITUDE, HILL_AMPLITUDE2, 0.005, 0.013, gc)
+	# Highlight edge
 	_draw_hill_edge(TILE_WIDTH, GROUND_BASE_Y, HILL_AMPLITUDE, HILL_AMPLITUDE2, 0.005, 0.013,
-		Color(0.3, 0.65, 0.2), 3.0)
-
-	# Earth/dirt layer
-	_draw_hill_layer(TILE_WIDTH, GROUND_BASE_Y + 15.0, HILL_AMPLITUDE * 0.7, HILL_AMPLITUDE2 * 0.7, 0.005, 0.013,
-		Color(0.4, 0.28, 0.12))
-
-	# Dark earth bottom
-	draw_rect(Rect2(0, GROUND_BASE_Y + 50, TILE_WIDTH, 200), Color(0.25, 0.15, 0.07))
+		gc.lightened(0.15), 3.0)
+	# Earth layer
+	_draw_hill_layer(TILE_WIDTH, GROUND_BASE_Y + 15.0, HILL_AMPLITUDE * 0.7, HILL_AMPLITUDE2 * 0.7, 0.005, 0.013, ec)
+	# Bottom
+	draw_rect(Rect2(0, GROUND_BASE_Y + 50, TILE_WIDTH, 200), ec.darkened(0.3))
 
 	# Grass blades
 	_draw_grass_blades()

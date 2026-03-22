@@ -25,6 +25,10 @@ Events="*res://autoloads/events.gd"
 SoundManager="*res://autoloads/sound_manager.gd"
 Mission="*res://autoloads/mission.gd"
 WeaponSystem="*res://autoloads/weapon_system.gd"
+BiomeManager="*res://autoloads/biome_manager.gd"
+Upgrades="*res://autoloads/upgrades.gd"
+Achievements="*res://autoloads/achievements.gd"
+SaveSystem="*res://autoloads/save_system.gd"
 
 [display]
 

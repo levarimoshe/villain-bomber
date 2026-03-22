@@ -17,6 +17,14 @@ const ExplosionScene: PackedScene = preload("res://scenes/explosion/explosion.ts
 const BombScene: PackedScene = preload("res://scenes/bomb/bomb.tscn")
 const BossScript: GDScript = preload("res://scenes/boss/boss.gd")
 
+# New enemy scripts
+const SniperScript: GDScript = preload("res://scenes/enemies/sniper.gd")
+const ShieldScript: GDScript = preload("res://scenes/enemies/shield_soldier.gd")
+const RunnerScript: GDScript = preload("res://scenes/enemies/runner.gd")
+const RocketScript: GDScript = preload("res://scenes/enemies/rocket_launcher.gd")
+const MedicScript: GDScript = preload("res://scenes/enemies/medic.gd")
+const TurretScript: GDScript = preload("res://scenes/enemies/anti_air_turret.gd")
+
 var screen_shake_amount: float = 0.0
 var screen_shake_decay: float = 0.9
 var power_up_rain_timer: float = 5.0
@@ -192,15 +200,16 @@ func _spawn_villain() -> void:
 			villains_container.add_child(villain)
 		return
 
-	# Normal mode — spawn from right
-	var villain := VillainScene.instantiate()
+	# Normal mode — spawn from right, with enemy variety based on level
 	var spawn_x := cam_x + 750.0
 	var ground_y_at_spawn := _get_ground_y_approx(spawn_x)
-	villain.global_position = Vector2(spawn_x, ground_y_at_spawn)
-	villain.speed = randf_range(60.0, 110.0) * GameState.villain_speed_multiplier
-	villain.direction = -1
-	villain.camera_ref = camera
-	villains_container.add_child(villain)
+	var enemy: Node2D = _create_random_enemy()
+	enemy.global_position = Vector2(spawn_x, ground_y_at_spawn)
+	if enemy.get("direction") != null:
+		enemy.direction = -1
+	if enemy.get("camera_ref") != null:
+		enemy.camera_ref = camera
+	villains_container.add_child(enemy)
 
 	# Group spawns
 	var extra_count: int = 0
@@ -505,6 +514,46 @@ func _arena_villain_killed() -> void:
 			var tween := create_tween()
 			tween.tween_interval(1.5)
 			tween.tween_callback(func(): level_label.visible = false)
+
+
+func _create_random_enemy() -> Node2D:
+	var level: int = GameState.current_level
+	var roll: float = randf()
+
+	# Higher levels unlock more enemy types
+	if level >= 8 and roll < 0.08:
+		# Anti-air turret (rare, dangerous)
+		var turret := Node2D.new()
+		turret.set_script(TurretScript)
+		return turret
+	elif level >= 6 and roll < 0.12:
+		# Rocket launcher
+		var rocket := Node2D.new()
+		rocket.set_script(RocketScript)
+		return rocket
+	elif level >= 5 and roll < 0.18:
+		# Medic (heals others)
+		var medic := Node2D.new()
+		medic.set_script(MedicScript)
+		return medic
+	elif level >= 4 and roll < 0.28:
+		# Shield soldier (tanky)
+		var shield := Node2D.new()
+		shield.set_script(ShieldScript)
+		return shield
+	elif level >= 3 and roll < 0.35:
+		# Runner (fast)
+		var runner := Node2D.new()
+		runner.set_script(RunnerScript)
+		return runner
+	elif level >= 2 and roll < 0.15:
+		# Sniper (accurate)
+		var sniper := Node2D.new()
+		sniper.set_script(SniperScript)
+		return sniper
+
+	# Default: regular villain
+	return VillainScene.instantiate()
 
 
 func _spawn_boss_arena() -> void:

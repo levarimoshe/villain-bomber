@@ -55,24 +55,20 @@ func _draw() -> void:
 	if level >= 4:
 		dark = minf(float(level - 3) * 0.08, 0.45)
 
-	# Soft sky gradient — more steps, pastel tones
+	# Sky gradient using biome colors
+	var sky_top: Color = BiomeManager.get_sky_top()
+	var sky_mid: Color = BiomeManager.get_sky_mid()
+	var sky_bottom: Color = BiomeManager.get_sky_bottom()
+
 	var steps := 100
 	var band_h := HEIGHT / float(steps)
 	for i in range(steps):
 		var t := float(i) / float(steps)
 		var color: Color
-		if t < 0.25:
-			var lt: float = t / 0.25
-			color = Color(0.15, 0.2, 0.48).lerp(Color(0.35, 0.55, 0.8), lt)
-		elif t < 0.55:
-			var lt: float = (t - 0.25) / 0.3
-			color = Color(0.35, 0.55, 0.8).lerp(Color(0.6, 0.82, 0.95), lt)
-		elif t < 0.8:
-			var lt: float = (t - 0.55) / 0.25
-			color = Color(0.6, 0.82, 0.95).lerp(Color(0.85, 0.88, 0.92), lt)
+		if t < 0.4:
+			color = sky_top.lerp(sky_mid, t / 0.4)
 		else:
-			var lt: float = (t - 0.8) / 0.2
-			color = Color(0.85, 0.88, 0.92).lerp(Color(0.95, 0.88, 0.75), lt)
+			color = sky_mid.lerp(sky_bottom, (t - 0.4) / 0.6)
 		# Darken for weather
 		color = color.darkened(dark)
 		draw_rect(Rect2(0, i * band_h, WIDTH, band_h + 1), color)

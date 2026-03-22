@@ -87,6 +87,16 @@ func _draw() -> void:
 	# Controls hint
 	draw_string(wep_font, Vector2(size.x / 2.0, size.y - 12), "M: Machine Gun  |  Space: Fire Weapon", HORIZONTAL_ALIGNMENT_CENTER, -1, 11, Color(0.6, 0.6, 0.6, 0.35))
 
+	# === ACHIEVEMENT POPUP ===
+	var ach: Dictionary = Achievements.get_popup()
+	if ach.size() > 0:
+		var ach_font: Font = ThemeDB.fallback_font
+		var ach_y: float = 160
+		draw_rect(Rect2(size.x / 2 - 130, ach_y - 20, 260, 45), Color(0, 0, 0, 0.7))
+		draw_rect(Rect2(size.x / 2 - 130, ach_y - 20, 260, 45), Color(1, 0.8, 0.1, 0.5), false, 2.0)
+		draw_string(ach_font, Vector2(size.x / 2, ach_y), "ACHIEVEMENT: " + ach["name"], HORIZONTAL_ALIGNMENT_CENTER, -1, 16, Color(1, 0.85, 0.2))
+		draw_string(ach_font, Vector2(size.x / 2, ach_y + 18), ach["desc"], HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(0.8, 0.8, 0.8, 0.8))
+
 	# === GREETING (top center) ===
 	var hour: int = Time.get_datetime_dict_from_system()["hour"]
 	var greeting: String = "Good Evening"
