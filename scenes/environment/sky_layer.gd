@@ -1,6 +1,6 @@
 extends Node2D
 
-const WIDTH: float = 1280.0
+const WIDTH: float = 2560.0
 const HEIGHT: float = 720.0
 
 var rain_drops: Array = []

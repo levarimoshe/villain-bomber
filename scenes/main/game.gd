@@ -149,6 +149,9 @@ func _physics_process(delta: float) -> void:
 func _spawn_villain() -> void:
 	if GameState.game_phase != &"playing":
 		return
+	# No soldiers during boss fight — boss only!
+	if GameState.boss_active:
+		return
 
 	var cam_x := camera.global_position.x
 

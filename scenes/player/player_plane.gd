@@ -1,9 +1,10 @@
 extends CharacterBody2D
 
-@export var move_speed: float = 300.0
+@export var move_speed: float = 280.0
 @export var vertical_speed: float = 220.0
 @export var min_y: float = 60.0
 @export var max_y: float = 420.0
+@export var turn_rate: float = 2.2  # Radians per second — how fast the plane turns
 
 @onready var visual: Node2D = $PlaneVisual
 @onready var bomb_cooldown: Timer = $BombCooldownTimer
@@ -19,8 +20,9 @@ var flash_timer: float = 0.0
 var crosshair_pos: Vector2 = Vector2.ZERO
 var mg_cooldown: float = 0.0
 var orbit_angle: float = 0.0
-var facing: int = 1  # 1=right, -1=left
-var auto_drift: float = 60.0  # Gentle rightward drift when no input
+var facing: int = 1
+var move_angle: float = 0.0  # Flight direction: 0=right, PI=left
+var flight_speed: float = 250.0  # Current forward speed
 
 
 func _ready() -> void:
@@ -38,7 +40,7 @@ func _physics_process(delta: float) -> void:
 	var input_v: float = Input.get_axis(&"move_up", &"move_down")
 
 	if GameState.is_arena_level and not GameState.boss_active:
-		# Arena defense mode — orbit behavior
+		# Arena defense mode — orbit
 		var orbit_speed: float = 1.5 - input_h * 0.8
 		var orbit_radius: float = 180.0 + input_h * 80.0
 		orbit_radius = clampf(orbit_radius, 80.0, 300.0)
@@ -54,32 +56,48 @@ func _physics_process(delta: float) -> void:
 		)
 		velocity = (target_pos - global_position) * 5.0
 		facing = 1 if velocity.x > 0 else -1
-	elif GameState.boss_active:
-		# Boss fight — free movement in locked area, no auto-scroll
-		var target_vx: float = input_h * move_speed
-		velocity.x = lerp(velocity.x, target_vx, 0.1)
-		velocity.y = input_v * vertical_speed
-
-		if input_h > 0.1:
-			facing = 1
-		elif input_h < -0.1:
-			facing = -1
+		move_angle = velocity.angle() if velocity.length() > 10 else move_angle
 	else:
-		# Normal mode — FREE MOVEMENT with U-turn
-		var target_vx: float
+		# Normal + Boss mode — SMOOTH ARC TURNING
+		# Input rotates the flight direction gradually (like a real plane)
+		var target_angle: float = move_angle
 		if absf(input_h) > 0.1:
-			# Player is pressing left or right
-			target_vx = input_h * move_speed
+			# Turn: rotate move_angle toward desired direction
 			if input_h > 0.1:
-				facing = 1
-			elif input_h < -0.1:
-				facing = -1
+				target_angle = 0.0  # Right
+			else:
+				target_angle = PI  # Left
 		else:
-			# No horizontal input — gentle drift right
-			target_vx = auto_drift
+			# No input: gently return toward rightward (0)
+			target_angle = 0.0
 
-		velocity.x = lerp(velocity.x, target_vx, 0.08)
+		# Smooth angular rotation — this creates the arc
+		var angle_diff: float = _angle_diff(move_angle, target_angle)
+		var max_turn: float = turn_rate * delta
+		if absf(angle_diff) > max_turn:
+			move_angle += sign(angle_diff) * max_turn
+		else:
+			move_angle = lerpf(move_angle, target_angle, 0.05)
+
+		# Keep angle in range
+		move_angle = fmod(move_angle + TAU, TAU)
+		if move_angle > PI:
+			move_angle -= TAU
+
+		# Set velocity from angle
+		if GameState.boss_active:
+			flight_speed = lerpf(flight_speed, 200.0 + absf(input_h) * 100.0, 0.05)
+		else:
+			flight_speed = lerpf(flight_speed, 180.0 + absf(input_h) * 120.0, 0.05)
+
+		velocity.x = cos(move_angle) * flight_speed
 		velocity.y = input_v * vertical_speed
+
+		# Update facing based on horizontal velocity
+		if velocity.x > 20:
+			facing = 1
+		elif velocity.x < -20:
+			facing = -1
 
 	# Clamp vertical
 	if global_position.y <= min_y and velocity.y < 0.0:
@@ -91,12 +109,12 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 
-	# Flip plane visual based on facing direction
+	# Visual: flip + bank angle
 	visual.scale.x = float(facing)
-
-	# Bank based on vertical movement
-	var target_rotation: float = velocity.y * 0.0012 * float(facing)
-	visual.rotation = lerp(visual.rotation, target_rotation, 0.1)
+	# Bank into the turn — steeper when turning harder
+	var bank_amount: float = _angle_diff(move_angle, 0.0) * 0.15 * float(facing)
+	bank_amount += velocity.y * 0.0008
+	visual.rotation = lerp(visual.rotation, bank_amount, 0.12)
 
 	propeller_angle += delta * 30.0
 
@@ -113,7 +131,7 @@ func _physics_process(delta: float) -> void:
 	# Bomb input
 	var cooldown_ready: bool = can_drop_bomb or GameState.has_rapid_fire
 	if Input.is_action_just_pressed(&"drop_bomb") and cooldown_ready:
-		var going_fast: bool = absf(velocity.x) > 250.0
+		var going_fast: bool = absf(velocity.x) > 200.0
 		if GameState.nuke_ready and going_fast:
 			_drop_nuke()
 		else:
@@ -128,6 +146,16 @@ func _physics_process(delta: float) -> void:
 
 	_update_crosshair()
 	_update_exhaust(delta)
+
+
+# Shortest angular difference (handles wrapping)
+func _angle_diff(from_a: float, to_a: float) -> float:
+	var diff: float = to_a - from_a
+	while diff > PI:
+		diff -= TAU
+	while diff < -PI:
+		diff += TAU
+	return diff
 
 
 func _drop_bomb() -> void:
@@ -146,17 +174,16 @@ func _drop_bomb() -> void:
 		for i in range(3):
 			var bomb := BombScene.instantiate()
 			var offset_x: float = float(i - 1) * 15.0
-			var offset_y: float = abs(i - 1) * 5.0
-			bomb.global_position = bomb_drop_point.global_position + Vector2(offset_x * facing, offset_y)
+			bomb.global_position = bomb_drop_point.global_position + Vector2(offset_x * facing, abs(i - 1) * 5.0)
 			var spread_angle: float = float(i - 1) * 0.15
-			var base_vel := Vector2(velocity.x * 0.8, 30.0)
+			var base_vel := Vector2(velocity.x * 0.7, 50.0)
 			bomb.initial_velocity = base_vel.rotated(spread_angle)
 			bomb.speed_scale = bomb_scale
 			Events.bomb_dropped.emit(bomb)
 	else:
 		var bomb := BombScene.instantiate()
 		bomb.global_position = bomb_drop_point.global_position
-		bomb.initial_velocity = Vector2(velocity.x * 0.8, 30.0)
+		bomb.initial_velocity = Vector2(velocity.x * 0.7, 50.0)
 		bomb.speed_scale = bomb_scale
 		Events.bomb_dropped.emit(bomb)
 
@@ -169,7 +196,7 @@ func _drop_nuke() -> void:
 	GameState.use_nuke()
 	var bomb := BombScene.instantiate()
 	bomb.global_position = bomb_drop_point.global_position
-	bomb.initial_velocity = Vector2(velocity.x * 0.8, 30.0)
+	bomb.initial_velocity = Vector2(velocity.x * 0.7, 50.0)
 	bomb.speed_scale = GameState.NUKE_SCALE
 	bomb.is_nuke = true
 	Events.bomb_dropped.emit(bomb)
@@ -181,13 +208,13 @@ func _fire_machine_gun() -> void:
 	var bullet := Node2D.new()
 	bullet.set_script(MachineGunScript)
 	bullet.global_position = global_position + Vector2(randf_range(-5, 5) * facing, 15)
-	bullet.velocity = Vector2(velocity.x * 0.3, 350)
+	bullet.velocity = Vector2(velocity.x * 0.2, 350)
 	get_tree().current_scene.add_child(bullet)
 
 
 func _update_crosshair() -> void:
 	var bomb_pos := bomb_drop_point.global_position
-	var bomb_vel := Vector2(velocity.x * 0.8, 30.0)
+	var bomb_vel := Vector2(velocity.x * 0.7, 50.0)
 	var gravity: float = 420.0
 	var ground_y: float = 580.0
 
@@ -214,7 +241,7 @@ func _update_exhaust(delta: float) -> void:
 	var i := 0
 	while i < exhaust_particles.size():
 		exhaust_particles[i]["life"] -= delta
-		exhaust_particles[i]["pos"].x -= velocity.x * 0.3 * delta
+		exhaust_particles[i]["pos"].x -= velocity.x * 0.2 * delta
 		if exhaust_particles[i]["life"] <= 0:
 			exhaust_particles.remove_at(i)
 		else:
