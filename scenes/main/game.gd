@@ -18,6 +18,11 @@ const BombScene: PackedScene = preload("res://scenes/bomb/bomb.tscn")
 const BossScript: GDScript = preload("res://scenes/boss/boss.gd")
 
 # New enemy scripts
+# Vehicle scripts
+const HelicopterScript: GDScript = preload("res://scenes/vehicles/helicopter.gd")
+const JeepScript: GDScript = preload("res://scenes/vehicles/jeep.gd")
+const ArtilleryScript: GDScript = preload("res://scenes/vehicles/artillery.gd")
+
 const SniperScript: GDScript = preload("res://scenes/enemies/sniper.gd")
 const ShieldScript: GDScript = preload("res://scenes/enemies/shield_soldier.gd")
 const RunnerScript: GDScript = preload("res://scenes/enemies/runner.gd")
@@ -30,9 +35,10 @@ var screen_shake_decay: float = 0.9
 var power_up_rain_timer: float = 5.0
 var fade_overlay: ColorRect = null
 var camera_target_x: float = 640.0
-var trauma: float = 0.0  # 0.0-1.0 trauma-based shake
+var camera_scroll_speed: float = 100.0  # Constant rightward scroll
+var trauma: float = 0.0
 var hitstop_timer: float = 0.0
-var accuracy_streak: int = 0  # Bombs that hit in a row
+var accuracy_streak: int = 0
 var accuracy_multiplier: float = 1.0
 
 
@@ -115,24 +121,26 @@ func _physics_process(delta: float) -> void:
 	if GameState.game_phase != &"playing" and GameState.game_phase != &"level_transition":
 		return
 
-	# Camera — smooth lerp for all modes
+	# Camera — always scrolls right, with player tracking
 	if GameState.boss_active:
-		# Boss fight: lock camera on boss position (find the boss)
+		# Boss: lock on boss
 		var boss_node: Node = get_tree().get_first_node_in_group(&"boss")
 		if boss_node:
 			camera_target_x = boss_node.global_position.x
 		camera.global_position.x = lerp(camera.global_position.x, camera_target_x, 0.03)
 	elif GameState.is_arena_level:
-		# Arena defense: camera on center
 		camera_target_x = GameState.arena_center_x
 		camera.global_position.x = lerp(camera.global_position.x, camera_target_x, 0.03)
 	else:
-		# Normal: follow player with offset based on facing
-		var facing: int = 1
-		if player.has_method("_physics_process"):
-			facing = player.facing
-		camera_target_x = player.global_position.x + 150.0 * float(facing)
-		camera.global_position.x = lerp(camera.global_position.x, camera_target_x, 0.04)
+		# ALWAYS scroll right at constant speed
+		camera_target_x += camera_scroll_speed * delta
+		# Also track player — if player is far from center, pull camera toward them
+		var player_offset: float = player.global_position.x - camera_target_x
+		if player_offset > 200:
+			camera_target_x += (player_offset - 200) * 0.5
+		elif player_offset < -200:
+			camera_target_x += (player_offset + 200) * 0.5
+		camera.global_position.x = lerp(camera.global_position.x, camera_target_x, 0.06)
 	camera.global_position.y = lerp(camera.global_position.y, 360.0, 0.05)
 
 	# Hit stop (brief freeze on impact)
@@ -519,6 +527,23 @@ func _arena_villain_killed() -> void:
 func _create_random_enemy() -> Node2D:
 	var level: int = GameState.current_level
 	var roll: float = randf()
+
+	# VEHICLES (rare, high levels)
+	if level >= 10 and roll < 0.04:
+		var arty := Node2D.new()
+		arty.set_script(ArtilleryScript)
+		arty.camera_ref = camera
+		return arty
+	elif level >= 7 and roll < 0.07:
+		var heli := Node2D.new()
+		heli.set_script(HelicopterScript)
+		heli.camera_ref = camera
+		return heli
+	elif level >= 5 and roll < 0.10:
+		var jeep := Node2D.new()
+		jeep.set_script(JeepScript)
+		jeep.camera_ref = camera
+		return jeep
 
 	# Higher levels unlock more enemy types
 	if level >= 8 and roll < 0.08:
