@@ -19,6 +19,7 @@ var exhaust_particles: Array[Dictionary] = []
 var flash_timer: float = 0.0
 var crosshair_pos: Vector2 = Vector2.ZERO
 var mg_cooldown: float = 0.0
+var orbit_angle: float = 0.0
 
 
 func _ready() -> void:
@@ -32,21 +33,44 @@ func _physics_process(delta: float) -> void:
 	if GameState.game_phase != &"playing":
 		return
 
-	var input_dir := Vector2.ZERO
-	input_dir.x = Input.get_axis(&"move_left", &"move_right")
-	input_dir.y = Input.get_axis(&"move_up", &"move_down")
+	if GameState.is_arena_level:
+		# Arena mode — plane circles around a center point
+		var input_h: float = Input.get_axis(&"move_left", &"move_right")
+		var input_v: float = Input.get_axis(&"move_up", &"move_down")
 
-	velocity.x = base_scroll_speed + input_dir.x * move_speed
-	velocity.y = input_dir.y * vertical_speed
+		# LEFT = tighter circle (faster orbit), RIGHT = wider circle
+		var orbit_speed: float = 1.5 - input_h * 0.8  # LEFT pressed = faster
+		var orbit_radius: float = 180.0 + input_h * 80.0  # LEFT = tighter
+		orbit_radius = clampf(orbit_radius, 80.0, 300.0)
+		orbit_angle += orbit_speed * delta
 
-	if global_position.y <= min_y and velocity.y < 0.0:
-		velocity.y = 0.0
-		global_position.y = min_y
-	if global_position.y >= max_y and velocity.y > 0.0:
-		velocity.y = 0.0
-		global_position.y = max_y
+		var center_x: float = GameState.arena_center_x
+		var center_y: float = 250.0 + input_v * 100.0
+		center_y = clampf(center_y, min_y + 50, max_y - 50)
 
-	move_and_slide()
+		var target_pos := Vector2(
+			center_x + cos(orbit_angle) * orbit_radius,
+			center_y + sin(orbit_angle) * orbit_radius * 0.4  # Flatter orbit
+		)
+		velocity = (target_pos - global_position) * 5.0
+		move_and_slide()
+	else:
+		# Normal mode
+		var input_dir := Vector2.ZERO
+		input_dir.x = Input.get_axis(&"move_left", &"move_right")
+		input_dir.y = Input.get_axis(&"move_up", &"move_down")
+
+		velocity.x = base_scroll_speed + input_dir.x * move_speed
+		velocity.y = input_dir.y * vertical_speed
+
+		if global_position.y <= min_y and velocity.y < 0.0:
+			velocity.y = 0.0
+			global_position.y = min_y
+		if global_position.y >= max_y and velocity.y > 0.0:
+			velocity.y = 0.0
+			global_position.y = max_y
+
+		move_and_slide()
 
 	var target_rotation := velocity.y * 0.0012
 	visual.rotation = lerp(visual.rotation, target_rotation, 0.1)

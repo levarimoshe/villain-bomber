@@ -21,6 +21,14 @@ var rapid_fire_timer: float = 0.0
 var has_mega_bomb: bool = false
 var mega_bomb_timer: float = 0.0
 
+# ---- Arena mode ----
+var is_arena_level: bool = false
+var arena_wave: int = 0
+var arena_max_waves: int = 3
+var arena_kills_this_wave: int = 0
+var arena_kills_needed: int = 8
+var arena_center_x: float = 0.0
+
 # ---- Nuke charge ----
 var nuke_charge: float = 0.0  # 0.0 to 1.0
 var nuke_ready: bool = false
@@ -70,19 +78,7 @@ func _process(delta: float) -> void:
 		if invulnerability_timer <= 0:
 			is_invulnerable = false
 
-	# Power-up timers
-	if has_shield:
-		shield_timer -= delta
-		if shield_timer <= 0:
-			has_shield = false
-	if has_rapid_fire:
-		rapid_fire_timer -= delta
-		if rapid_fire_timer <= 0:
-			has_rapid_fire = false
-	if has_mega_bomb:
-		mega_bomb_timer -= delta
-		if mega_bomb_timer <= 0:
-			has_mega_bomb = false
+	# Power-ups persist until death — no timers
 
 
 func reset() -> void:
@@ -157,18 +153,28 @@ func get_combo_multiplier() -> int:
 
 
 func lose_life() -> void:
-	if is_invulnerable or has_shield:
-		if has_shield:
-			has_shield = false
+	if is_invulnerable:
 		return
+	if has_shield:
+		# Shield absorbs hit but ALL power-ups are lost
+		_clear_all_powerups()
+		return
+	# Actually lose a life — clear all power-ups
 	lives -= 1
 	escapes_this_life = 0
 	is_invulnerable = true
 	invulnerability_timer = INVULNERABILITY_DURATION
+	_clear_all_powerups()
 	Events.lives_changed.emit(lives)
 	if lives <= 0:
 		game_phase = &"game_over"
 		Events.game_over.emit()
+
+
+func _clear_all_powerups() -> void:
+	has_shield = false
+	has_rapid_fire = false
+	has_mega_bomb = false
 
 
 func register_escape() -> void:
@@ -189,15 +195,12 @@ func activate_power_up(type: String) -> void:
 	match type:
 		"shield":
 			has_shield = true
-			shield_timer = 5.0
 			SoundManager.speak("Shield activated")
 		"rapid_fire":
 			has_rapid_fire = true
-			rapid_fire_timer = 4.0
 			SoundManager.speak("Rapid fire!")
 		"mega_bomb":
 			has_mega_bomb = true
-			mega_bomb_timer = 8.0
 			SoundManager.speak("Mega bomb!")
 	Events.power_up_collected.emit(type)
 

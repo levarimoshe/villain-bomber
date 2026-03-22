@@ -86,9 +86,15 @@ func _physics_process(delta: float) -> void:
 	if GameState.game_phase != &"playing" and GameState.game_phase != &"level_transition":
 		return
 
-	# Camera follows player
-	camera.global_position.x = player.global_position.x + 200.0
-	camera.global_position.y = 360.0
+	# Camera
+	if GameState.is_arena_level:
+		# Arena: camera stays fixed on center
+		camera.global_position.x = GameState.arena_center_x
+		camera.global_position.y = 360.0
+	else:
+		# Normal: camera follows player
+		camera.global_position.x = player.global_position.x + 200.0
+		camera.global_position.y = 360.0
 
 	# Screen shake
 	if screen_shake_amount > 0.5:
@@ -117,9 +123,30 @@ func _spawn_villain() -> void:
 	if GameState.game_phase != &"playing":
 		return
 
-	var villain := VillainScene.instantiate()
 	var cam_x := camera.global_position.x
-	# Spawn from right side
+
+	if GameState.is_arena_level:
+		# Arena mode — spawn from both sides!
+		var spawn_count: int = randi_range(1, 3)
+		for s in range(spawn_count):
+			var villain := VillainScene.instantiate()
+			var from_right: bool = randf() < 0.5
+			var spawn_x: float
+			if from_right:
+				spawn_x = cam_x + randf_range(650, 800)
+				villain.direction = -1
+			else:
+				spawn_x = cam_x - randf_range(650, 800)
+				villain.direction = 1
+			var ground_y: float = _get_ground_y_approx(spawn_x)
+			villain.global_position = Vector2(spawn_x, ground_y)
+			villain.speed = randf_range(100.0, 170.0) * GameState.villain_speed_multiplier
+			villain.camera_ref = camera
+			villains_container.add_child(villain)
+		return
+
+	# Normal mode — spawn from right
+	var villain := VillainScene.instantiate()
 	var spawn_x := cam_x + 750.0
 	var ground_y_at_spawn := _get_ground_y_approx(spawn_x)
 	villain.global_position = Vector2(spawn_x, ground_y_at_spawn)
@@ -128,7 +155,7 @@ func _spawn_villain() -> void:
 	villain.camera_ref = camera
 	villains_container.add_child(villain)
 
-	# Group spawns — more likely at higher levels
+	# Group spawns
 	var extra_count: int = 0
 	var group_chance: float = 0.4 + GameState.current_level * 0.08
 	if randf() < group_chance:
@@ -165,7 +192,10 @@ func _on_villain_killed(pos: Vector2, points: int) -> void:
 	if randf() < 0.12:
 		_spawn_power_up(pos)
 
-	if GameState.villains_killed_this_level >= GameState.villains_per_level:
+	# Check level/arena progression
+	if GameState.is_arena_level:
+		_arena_villain_killed()
+	elif GameState.villains_killed_this_level >= GameState.villains_per_level:
 		_start_level_transition()
 
 
@@ -204,10 +234,10 @@ func _on_bomb_hit_ground(pos: Vector2, bomb_scale: float, was_nuke: bool) -> voi
 	var blast_radius: float
 
 	if was_nuke:
-		# NUKE — kills everything on screen, massive explosion
+		# NUKE — kills everything on screen
 		blast_radius = 800.0
-		visual_scale = 5.0
-		screen_shake_amount = 20.0
+		visual_scale = 2.5
+		screen_shake_amount = 12.0
 	else:
 		# Normal bomb — base 100px, scales with speed, mega bomb doubles
 		var base: float = 100.0
@@ -254,7 +284,6 @@ func _start_level_transition() -> void:
 	GameState.game_phase = &"level_transition"
 	spawn_timer.stop()
 	SoundManager.play_levelup()
-	SoundManager.speak("Level %d complete!" % GameState.current_level)
 	level_label.visible = true
 	level_label.text = "LEVEL %d COMPLETE!" % GameState.current_level
 
@@ -268,8 +297,14 @@ func _finish_level_transition() -> void:
 	GameState.advance_level()
 	GameState.game_phase = &"playing"
 	level_label.visible = false
-	spawn_timer.wait_time = GameState.spawn_interval
-	spawn_timer.start()
+
+	# Check if this is an arena level (every 3 levels)
+	if GameState.current_level % 3 == 0:
+		_start_arena_level()
+	else:
+		GameState.is_arena_level = false
+		spawn_timer.wait_time = GameState.spawn_interval
+		spawn_timer.start()
 
 	# Spawn boss every 5 levels
 	if GameState.current_level % 5 == 0:
@@ -353,6 +388,44 @@ func _spawn_sky_power_up() -> void:
 	pu.power_type = types[randi() % types.size()]
 	pu.from_sky = true
 	add_child(pu)
+
+
+func _start_arena_level() -> void:
+	GameState.is_arena_level = true
+	GameState.arena_wave = 1
+	GameState.arena_kills_this_wave = 0
+	GameState.arena_kills_needed = 6 + GameState.current_level
+	GameState.arena_center_x = player.global_position.x + 100
+	spawn_timer.wait_time = 0.8  # Fast spawning in arena
+	spawn_timer.start()
+	level_label.visible = true
+	level_label.text = "DEFENSE MODE!\nWave %d/%d" % [GameState.arena_wave, GameState.arena_max_waves]
+	SoundManager.speak("Defense mode! Hold your position!")
+
+	# Hide label after 2 seconds
+	var tween := create_tween()
+	tween.tween_interval(2.0)
+	tween.tween_callback(func(): level_label.visible = false)
+
+
+func _arena_villain_killed() -> void:
+	GameState.arena_kills_this_wave += 1
+	if GameState.arena_kills_this_wave >= GameState.arena_kills_needed:
+		GameState.arena_wave += 1
+		GameState.arena_kills_this_wave = 0
+		if GameState.arena_wave > GameState.arena_max_waves:
+			# Arena complete
+			GameState.is_arena_level = false
+			_start_level_transition()
+		else:
+			# Next wave
+			GameState.arena_kills_needed += 3
+			level_label.visible = true
+			level_label.text = "Wave %d/%d" % [GameState.arena_wave, GameState.arena_max_waves]
+			SoundManager.speak("Wave %d!" % GameState.arena_wave)
+			var tween := create_tween()
+			tween.tween_interval(1.5)
+			tween.tween_callback(func(): level_label.visible = false)
 
 
 func _spawn_boss() -> void:
