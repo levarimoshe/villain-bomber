@@ -55,21 +55,24 @@ func _draw() -> void:
 	if level >= 4:
 		dark = minf(float(level - 3) * 0.08, 0.45)
 
-	# Sky gradient
-	var steps := 60
+	# Soft sky gradient — more steps, pastel tones
+	var steps := 100
 	var band_h := HEIGHT / float(steps)
 	for i in range(steps):
 		var t := float(i) / float(steps)
 		var color: Color
-		if t < 0.3:
-			var lt: float = t / 0.3
-			color = Color(0.1, 0.15, 0.45).lerp(Color(0.3, 0.5, 0.78), lt)
-		elif t < 0.65:
-			var lt: float = (t - 0.3) / 0.35
-			color = Color(0.3, 0.5, 0.78).lerp(Color(0.55, 0.78, 0.92), lt)
+		if t < 0.25:
+			var lt: float = t / 0.25
+			color = Color(0.15, 0.2, 0.48).lerp(Color(0.35, 0.55, 0.8), lt)
+		elif t < 0.55:
+			var lt: float = (t - 0.25) / 0.3
+			color = Color(0.35, 0.55, 0.8).lerp(Color(0.6, 0.82, 0.95), lt)
+		elif t < 0.8:
+			var lt: float = (t - 0.55) / 0.25
+			color = Color(0.6, 0.82, 0.95).lerp(Color(0.85, 0.88, 0.92), lt)
 		else:
-			var lt: float = (t - 0.65) / 0.35
-			color = Color(0.55, 0.78, 0.92).lerp(Color(0.9, 0.8, 0.6), lt)
+			var lt: float = (t - 0.8) / 0.2
+			color = Color(0.85, 0.88, 0.92).lerp(Color(0.95, 0.88, 0.75), lt)
 		# Darken for weather
 		color = color.darkened(dark)
 		draw_rect(Rect2(0, i * band_h, WIDTH, band_h + 1), color)

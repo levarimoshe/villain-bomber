@@ -28,6 +28,7 @@ var arena_max_waves: int = 3
 var arena_kills_this_wave: int = 0
 var arena_kills_needed: int = 8
 var arena_center_x: float = 0.0
+var boss_active: bool = false
 
 # ---- Nuke charge ----
 var nuke_charge: float = 0.0  # 0.0 to 1.0
@@ -131,10 +132,6 @@ func register_kill() -> void:
 		var new_quarter: int = int(nuke_charge * 4.0)
 		if new_quarter > old_quarter:
 			SoundManager.play_nuke_charge()
-			if new_quarter == 2:
-				SoundManager.speak("Fifty percent")
-			elif new_quarter == 3:
-				SoundManager.speak("Seventy five percent")
 		if nuke_charge >= 1.0:
 			nuke_ready = true
 			SoundManager.play_levelup()

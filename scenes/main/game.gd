@@ -31,6 +31,7 @@ func _ready() -> void:
 	Events.villain_escaped.connect(_on_villain_escaped)
 	Events.level_changed.connect(_on_level_changed)
 	Events.player_hit.connect(_on_player_hit)
+	Events.level_transition_started.connect(_on_boss_defeated)
 
 	spawn_timer.timeout.connect(_spawn_villain)
 
@@ -193,7 +194,9 @@ func _on_villain_killed(pos: Vector2, points: int) -> void:
 		_spawn_power_up(pos)
 
 	# Check level/arena progression
-	if GameState.is_arena_level:
+	if GameState.boss_active:
+		pass  # Boss must die to advance — boss.gd handles boss_active flag
+	elif GameState.is_arena_level:
 		_arena_villain_killed()
 	elif GameState.villains_killed_this_level >= GameState.villains_per_level:
 		_start_level_transition()
@@ -236,8 +239,8 @@ func _on_bomb_hit_ground(pos: Vector2, bomb_scale: float, was_nuke: bool) -> voi
 	if was_nuke:
 		# NUKE — kills everything on screen
 		blast_radius = 800.0
-		visual_scale = 2.5
-		screen_shake_amount = 12.0
+		visual_scale = 1.8
+		screen_shake_amount = 10.0
 	else:
 		# Normal bomb — base 100px, scales with speed, mega bomb doubles
 		var base: float = 100.0
@@ -298,21 +301,24 @@ func _finish_level_transition() -> void:
 	GameState.game_phase = &"playing"
 	level_label.visible = false
 
-	# Check if this is an arena level (every 3 levels)
-	if GameState.current_level % 3 == 0:
+	# Boss fight every 6 levels (5, 11, 17...)
+	if (GameState.current_level + 1) % 6 == 0:
+		_spawn_boss_arena()
+	# Arena defense every 3 levels (but not boss levels)
+	elif GameState.current_level % 3 == 0:
 		_start_arena_level()
 	else:
 		GameState.is_arena_level = false
 		spawn_timer.wait_time = GameState.spawn_interval
 		spawn_timer.start()
 
-	# Spawn boss every 5 levels
-	if GameState.current_level % 5 == 0:
-		_spawn_boss()
-
 
 func _on_level_changed(_level: int) -> void:
 	pass # HUD handles display
+
+
+func _on_boss_defeated(_level: int) -> void:
+	_start_level_transition()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -428,14 +434,27 @@ func _arena_villain_killed() -> void:
 			tween.tween_callback(func(): level_label.visible = false)
 
 
-func _spawn_boss() -> void:
+func _spawn_boss_arena() -> void:
+	# Force arena mode for boss fight
+	GameState.is_arena_level = true
+	GameState.arena_center_x = player.global_position.x + 200
+	spawn_timer.wait_time = 1.5  # Fewer regular villains during boss
+	spawn_timer.start()
+
+	# Spawn the giant tank boss
 	var boss := Node2D.new()
 	boss.set_script(BossScript)
-	var cam_x: float = camera.global_position.x
-	var ground_y: float = _get_ground_y_approx(cam_x + 800)
-	boss.global_position = Vector2(cam_x + 800, ground_y - 10)
+	var ground_y: float = _get_ground_y_approx(GameState.arena_center_x + 300)
+	boss.global_position = Vector2(GameState.arena_center_x + 400, ground_y - 20)
 	boss.camera_ref = camera
+	boss.target_x = GameState.arena_center_x
 	villains_container.add_child(boss)
+
+	level_label.visible = true
+	level_label.text = "BOSS FIGHT!"
+	var tween := create_tween()
+	tween.tween_interval(2.0)
+	tween.tween_callback(func(): level_label.visible = false)
 
 
 func _spawn_shield_break_effect(pos: Vector2) -> void:

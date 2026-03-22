@@ -84,6 +84,16 @@ func _draw() -> void:
 		var mg_font: Font = ThemeDB.fallback_font
 		draw_string(mg_font, Vector2(size.x / 2.0, size.y - 15), "Hold M: Machine Gun", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(0.6, 0.6, 0.6, 0.4))
 
+	# === GREETING (top center) ===
+	var hour: int = Time.get_datetime_dict_from_system()["hour"]
+	var greeting: String = "Good Evening"
+	if hour < 12:
+		greeting = "Good Morning"
+	elif hour < 17:
+		greeting = "Good Afternoon"
+	var greet_font: Font = ThemeDB.fallback_font
+	draw_string(greet_font, Vector2(size.x / 2.0, 30), greeting, HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color(1, 1, 1, 0.35))
+
 	# === KILL COUNTER (bottom left) ===
 	var font2: Font = ThemeDB.fallback_font
 	var kill_text: String = "KILLS: %d" % GameState.total_villains_killed
