@@ -1,16 +1,14 @@
 extends CharacterBody2D
-## Luftrausers-style rotation movement:
-## LEFT/RIGHT rotates the plane. Thrust pushes FORWARD in facing direction.
-## transform.x = always the plane's forward direction.
-## Smooth curves happen naturally from momentum + gradual rotation.
+## Simple side-scroller plane: UP/DOWN move, RIGHT speeds up, LEFT turns back.
+## NO rotation physics. Plane stays horizontal. Just smooth velocity control.
 
-@export var thrust_power: float = 350.0      # Forward push strength
-@export var rotation_speed: float = 3.0      # How fast the plane turns (rad/s)
-@export var gravity: float = 120.0           # Gentle downward pull
-@export var max_speed: float = 400.0         # Speed cap
-@export var drag: float = 0.98              # Air resistance (momentum decay)
+@export var base_speed: float = 150.0       # Default rightward speed
+@export var boost_speed: float = 200.0      # Extra speed when pressing RIGHT
+@export var turn_speed: float = 180.0       # How fast LEFT pulls you back
+@export var vertical_speed: float = 250.0   # UP/DOWN speed
 @export var min_y: float = 40.0
 @export var max_y: float = 450.0
+@export var smoothing: float = 4.0          # How fast velocity changes
 
 @onready var visual: Node2D = $PlaneVisual
 @onready var bomb_cooldown: Timer = $BombCooldownTimer
@@ -27,7 +25,6 @@ var crosshair_pos: Vector2 = Vector2.ZERO
 var mg_cooldown: float = 0.0
 var orbit_angle: float = 0.0
 var facing: int = 1
-var current_thrust: float = 0.0
 
 
 func _ready() -> void:
@@ -35,13 +32,15 @@ func _ready() -> void:
 	bomb_cooldown.wait_time = 0.3
 	bomb_cooldown.one_shot = true
 	bomb_cooldown.timeout.connect(func(): can_drop_bomb = true)
-	# Start facing right
-	rotation = 0.0
+	rotation = 0  # ALWAYS horizontal
 
 
 func _physics_process(delta: float) -> void:
 	if GameState.game_phase != &"playing":
 		return
+
+	# Keep body rotation at zero — plane is ALWAYS horizontal
+	rotation = 0
 
 	var input_h: float = Input.get_axis(&"move_left", &"move_right")
 	var input_v: float = Input.get_axis(&"move_up", &"move_down")
@@ -49,27 +48,34 @@ func _physics_process(delta: float) -> void:
 	if GameState.is_arena_level and not GameState.boss_active:
 		_arena_movement(delta, input_h, input_v)
 	else:
-		_rotation_flight(delta, input_h, input_v)
+		_simple_flight(delta, input_h, input_v)
 
-	# Clamp vertical position
+	# Clamp vertical
 	if global_position.y < min_y:
 		global_position.y = min_y
 		if velocity.y < 0:
-			velocity.y *= -0.3  # Soft bounce off top
+			velocity.y = 0
 	if global_position.y > max_y:
 		global_position.y = max_y
 		if velocity.y > 0:
-			velocity.y *= -0.3  # Soft bounce off bottom
+			velocity.y = 0
 
 	move_and_slide()
 
-	# Visual follows the body rotation smoothly
-	# The visual is a child so it inherits rotation, but we want
-	# the visual to stay horizontal-ish (just tilt slightly)
-	# So we counter-rotate the visual and add a tilt
-	visual.rotation = -rotation + sin(rotation) * 0.3
+	# Visual: tiny tilt based on vertical speed (cosmetic only)
+	var tilt: float = velocity.y * 0.0015
+	visual.rotation = lerpf(visual.rotation, tilt, smoothing * delta)
+
+	# No scale flip — plane always faces right visually
+	visual.scale.x = 1.0
 
 	propeller_angle += delta * 30.0
+
+	# Update facing for bomb/exhaust direction
+	if velocity.x > 0:
+		facing = 1
+	else:
+		facing = -1
 
 	# Invulnerability flashing
 	if GameState.is_invulnerable:
@@ -81,16 +87,10 @@ func _physics_process(delta: float) -> void:
 
 	visual.queue_redraw()
 
-	# Update facing for bomb direction
-	if velocity.x > 10:
-		facing = 1
-	elif velocity.x < -10:
-		facing = -1
-
 	# === WEAPONS ===
 	var cooldown_ready: bool = can_drop_bomb or GameState.has_rapid_fire
 	if Input.is_action_just_pressed(&"drop_bomb") and cooldown_ready:
-		var going_fast: bool = velocity.length() > 200.0
+		var going_fast: bool = absf(velocity.x) > 200.0
 		if GameState.nuke_ready and going_fast:
 			_drop_nuke()
 		else:
@@ -100,7 +100,7 @@ func _physics_process(delta: float) -> void:
 			else:
 				_fire_special_weapon(weapon)
 
-	# Machine gun (M key, level 3+)
+	# Machine gun
 	if GameState.current_level >= 3:
 		mg_cooldown -= delta
 		if Input.is_action_pressed(&"machine_gun") and mg_cooldown <= 0:
@@ -111,45 +111,27 @@ func _physics_process(delta: float) -> void:
 	_update_exhaust(delta)
 
 
-## THE CORE: Rotation-based flight (Luftrausers style)
-func _rotation_flight(delta: float, input_h: float, input_v: float) -> void:
-	# === ROTATION ===
-	# LEFT/RIGHT rotates the plane body
-	rotation += input_h * rotation_speed * delta
+## Simple flight: UP=up, DOWN=down, RIGHT=fast, LEFT=turn back
+func _simple_flight(delta: float, input_h: float, input_v: float) -> void:
+	# Horizontal: base speed + input
+	var target_vx: float
+	if input_h > 0.1:
+		target_vx = base_speed + boost_speed  # RIGHT = fast
+	elif input_h < -0.1:
+		target_vx = -turn_speed  # LEFT = go backwards (smooth U-turn)
+	else:
+		target_vx = base_speed  # No input = cruise right
 
-	# === THRUST ===
-	# UP = more thrust, DOWN = less thrust, default = moderate forward push
-	var thrust_input: float = 1.0  # Always some forward thrust
-	if input_v < -0.1:
-		thrust_input = 1.5  # UP = boost
-	elif input_v > 0.1:
-		thrust_input = 0.3  # DOWN = slow
+	# Vertical: direct control
+	var target_vy: float = input_v * vertical_speed
 
-	current_thrust = lerpf(current_thrust, thrust_power * thrust_input, 1.0 - exp(-5.0 * delta))
-
-	# transform.x = the direction the plane faces (magic!)
-	# This is what makes curves natural — velocity follows rotation
-	var thrust_vector: Vector2 = transform.x * current_thrust
-
-	# Apply thrust
-	velocity += thrust_vector * delta
-
-	# Apply gentle gravity (makes swooping feel natural)
-	velocity.y += gravity * delta
-
-	# Apply drag (air resistance — prevents infinite acceleration)
-	velocity *= pow(drag, delta * 60.0)
-
-	# Speed cap
-	if velocity.length() > max_speed:
-		velocity = velocity.normalized() * max_speed
-
-	# Ensure minimum forward speed so screen keeps scrolling
-	if velocity.x < 30.0 and not GameState.boss_active:
-		velocity.x = lerpf(velocity.x, 50.0, delta * 2.0)
+	# Smooth lerp (frame-rate independent)
+	var s: float = 1.0 - exp(-smoothing * delta)
+	velocity.x = lerpf(velocity.x, target_vx, s)
+	velocity.y = lerpf(velocity.y, target_vy, s)
 
 
-## Arena orbit movement (unchanged)
+## Arena orbit
 func _arena_movement(delta: float, input_h: float, input_v: float) -> void:
 	var orbit_speed: float = 1.5 - input_h * 0.8
 	var orbit_radius: float = 180.0 + input_h * 80.0
@@ -165,9 +147,6 @@ func _arena_movement(delta: float, input_h: float, input_v: float) -> void:
 		center_y + sin(orbit_angle) * orbit_radius * 0.4
 	)
 	velocity = (target_pos - global_position) * 5.0
-	# Rotate body to face velocity direction
-	if velocity.length() > 10:
-		rotation = velocity.angle()
 
 
 func _drop_bomb() -> void:
@@ -180,7 +159,7 @@ func _drop_bomb() -> void:
 		bomb_cooldown.start()
 		bomb_cooldown.wait_time = 0.3
 
-	var speed_factor: float = clampf(velocity.length() / 500.0, 0.0, 1.0)
+	var speed_factor: float = clampf(absf(velocity.x) / 500.0, 0.0, 1.0)
 	var bomb_scale: float = 1.0 + speed_factor * 0.8
 
 	if GameState.has_rapid_fire:
@@ -189,17 +168,15 @@ func _drop_bomb() -> void:
 		for i in range(bomb_count):
 			var bomb := BombScene.instantiate()
 			var offset_idx: int = i - half
-			var offset: Vector2 = transform.y * float(offset_idx) * 12.0
-			bomb.global_position = bomb_drop_point.global_position + offset
+			bomb.global_position = bomb_drop_point.global_position + Vector2(float(offset_idx) * 12.0, abs(offset_idx) * 3.0)
 			var spread: float = float(offset_idx) * 0.08
-			bomb.initial_velocity = velocity * 0.5 + Vector2(0, 50)
-			bomb.initial_velocity = bomb.initial_velocity.rotated(spread)
+			bomb.initial_velocity = Vector2(velocity.x * 0.6, 50.0).rotated(spread)
 			bomb.speed_scale = bomb_scale
 			Events.bomb_dropped.emit(bomb)
 	else:
 		var bomb := BombScene.instantiate()
 		bomb.global_position = bomb_drop_point.global_position
-		bomb.initial_velocity = velocity * 0.5 + Vector2(0, 50)
+		bomb.initial_velocity = Vector2(velocity.x * 0.6, 50.0)
 		bomb.speed_scale = bomb_scale
 		Events.bomb_dropped.emit(bomb)
 
@@ -212,7 +189,7 @@ func _drop_nuke() -> void:
 	GameState.use_nuke()
 	var bomb := BombScene.instantiate()
 	bomb.global_position = bomb_drop_point.global_position
-	bomb.initial_velocity = velocity * 0.5 + Vector2(0, 50)
+	bomb.initial_velocity = Vector2(velocity.x * 0.6, 50.0)
 	bomb.speed_scale = GameState.NUKE_SCALE
 	bomb.is_nuke = true
 	Events.bomb_dropped.emit(bomb)
@@ -229,7 +206,7 @@ func _fire_special_weapon(weapon: Dictionary) -> void:
 	var projectile := Node2D.new()
 	projectile.set_script(WeaponScript)
 	projectile.global_position = bomb_drop_point.global_position
-	projectile.velocity = velocity * 0.5 + Vector2(0, 50)
+	projectile.velocity = Vector2(velocity.x * 0.6, 50.0)
 	get_tree().current_scene.add_child(projectile)
 	SoundManager.play_bomb_drop()
 
@@ -237,21 +214,19 @@ func _fire_special_weapon(weapon: Dictionary) -> void:
 func _fire_machine_gun() -> void:
 	var bullet := Node2D.new()
 	bullet.set_script(MachineGunScript)
-	# Fire downward from plane
-	bullet.global_position = global_position + Vector2(0, 15).rotated(rotation)
+	bullet.global_position = global_position + Vector2(0, 15)
 	bullet.velocity = Vector2(velocity.x * 0.2, 350)
 	get_tree().current_scene.add_child(bullet)
 
 
 func _update_crosshair() -> void:
 	var bomb_pos: Vector2 = bomb_drop_point.global_position
-	var bomb_vel: Vector2 = velocity * 0.5 + Vector2(0, 50)
+	var bomb_vel: Vector2 = Vector2(velocity.x * 0.6, 50.0)
 	var grav: float = 420.0
-	var ground_y: float = 580.0
 	for step in range(120):
 		bomb_vel.y += grav * 0.016
 		bomb_pos += bomb_vel * 0.016
-		if bomb_pos.y >= ground_y:
+		if bomb_pos.y >= 580.0:
 			crosshair_pos = bomb_pos
 			return
 	crosshair_pos = bomb_pos
@@ -259,10 +234,8 @@ func _update_crosshair() -> void:
 
 func _update_exhaust(delta: float) -> void:
 	if randf() < 0.6:
-		# Exhaust comes from behind the plane (opposite of transform.x)
-		var behind: Vector2 = -transform.x * 30
 		exhaust_particles.append({
-			"pos": Vector2(global_position.x + behind.x, global_position.y + behind.y + randf_range(-3, 3)),
+			"pos": Vector2(global_position.x - 30, global_position.y + randf_range(-3, 3)),
 			"life": 0.5,
 			"max_life": 0.5,
 			"size": randf_range(2.0, 5.0),
@@ -271,7 +244,7 @@ func _update_exhaust(delta: float) -> void:
 	var i := 0
 	while i < exhaust_particles.size():
 		exhaust_particles[i]["life"] -= delta
-		exhaust_particles[i]["pos"] += -transform.x * 20 * delta
+		exhaust_particles[i]["pos"].x -= 40 * delta
 		if exhaust_particles[i]["life"] <= 0:
 			exhaust_particles.remove_at(i)
 		else:
