@@ -20,6 +20,8 @@ const BossScript: GDScript = preload("res://scenes/boss/boss.gd")
 var screen_shake_amount: float = 0.0
 var screen_shake_decay: float = 0.9
 var power_up_rain_timer: float = 5.0
+var fade_overlay: ColorRect = null
+var camera_target_x: float = 640.0
 
 
 func _ready() -> void:
@@ -37,6 +39,14 @@ func _ready() -> void:
 
 	# Add ground to group for bomb collision detection
 	ground_collider.add_to_group(&"ground")
+
+	# Create fade overlay for smooth transitions
+	fade_overlay = ColorRect.new()
+	fade_overlay.color = Color(0, 0, 0, 0)
+	fade_overlay.anchors_preset = Control.PRESET_FULL_RECT
+	fade_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	$HUDLayer.add_child(fade_overlay)
+	fade_overlay.z_index = 100
 
 	# Start in menu state
 	_show_menu()
@@ -71,6 +81,12 @@ func _on_game_started() -> void:
 	Events.lives_changed.emit(GameState.lives)
 	Events.level_changed.emit(1)
 	SoundManager.start_music()
+	camera_target_x = player.global_position.x + 150.0
+	camera.global_position.x = camera_target_x
+	# Fade in from black
+	fade_overlay.color.a = 1.0
+	var fade_tween := create_tween()
+	fade_tween.tween_property(fade_overlay, "color:a", 0.0, 0.6)
 
 
 func _on_game_over() -> void:
@@ -87,15 +103,25 @@ func _physics_process(delta: float) -> void:
 	if GameState.game_phase != &"playing" and GameState.game_phase != &"level_transition":
 		return
 
-	# Camera
-	if GameState.is_arena_level:
-		# Arena: camera stays fixed on center
-		camera.global_position.x = GameState.arena_center_x
-		camera.global_position.y = 360.0
+	# Camera — smooth lerp for all modes
+	if GameState.boss_active:
+		# Boss fight: lock camera on boss position (find the boss)
+		var boss_node: Node = get_tree().get_first_node_in_group(&"boss")
+		if boss_node:
+			camera_target_x = boss_node.global_position.x
+		camera.global_position.x = lerp(camera.global_position.x, camera_target_x, 0.03)
+	elif GameState.is_arena_level:
+		# Arena defense: camera on center
+		camera_target_x = GameState.arena_center_x
+		camera.global_position.x = lerp(camera.global_position.x, camera_target_x, 0.03)
 	else:
-		# Normal: camera follows player
-		camera.global_position.x = player.global_position.x + 200.0
-		camera.global_position.y = 360.0
+		# Normal: follow player with offset based on facing
+		var facing: int = 1
+		if player.has_method("_physics_process"):
+			facing = player.facing
+		camera_target_x = player.global_position.x + 150.0 * float(facing)
+		camera.global_position.x = lerp(camera.global_position.x, camera_target_x, 0.04)
+	camera.global_position.y = lerp(camera.global_position.y, 360.0, 0.05)
 
 	# Screen shake
 	if screen_shake_amount > 0.5:
@@ -287,12 +313,17 @@ func _start_level_transition() -> void:
 	GameState.game_phase = &"level_transition"
 	spawn_timer.stop()
 	SoundManager.play_levelup()
-	level_label.visible = true
-	level_label.text = "LEVEL %d COMPLETE!" % GameState.current_level
 
-	# Wait 2 seconds then advance
+	# Smooth fade out → show text → fade in
 	var tween := create_tween()
-	tween.tween_interval(2.0)
+	tween.tween_property(fade_overlay, "color:a", 0.7, 0.4)  # Fade to dark
+	tween.tween_callback(func():
+		level_label.visible = true
+		level_label.text = "LEVEL %d COMPLETE!" % GameState.current_level
+	)
+	tween.tween_interval(1.5)  # Hold
+	tween.tween_callback(func(): level_label.visible = false)
+	tween.tween_property(fade_overlay, "color:a", 0.0, 0.4)  # Fade back in
 	tween.tween_callback(_finish_level_transition)
 
 
@@ -435,26 +466,29 @@ func _arena_villain_killed() -> void:
 
 
 func _spawn_boss_arena() -> void:
-	# Force arena mode for boss fight
 	GameState.is_arena_level = true
 	GameState.arena_center_x = player.global_position.x + 200
-	spawn_timer.wait_time = 1.5  # Fewer regular villains during boss
+	spawn_timer.wait_time = 2.0
 	spawn_timer.start()
 
-	# Spawn the giant tank boss
-	var boss := Node2D.new()
-	boss.set_script(BossScript)
-	var ground_y: float = _get_ground_y_approx(GameState.arena_center_x + 300)
-	boss.global_position = Vector2(GameState.arena_center_x + 400, ground_y - 20)
-	boss.camera_ref = camera
-	boss.target_x = GameState.arena_center_x
-	villains_container.add_child(boss)
-
-	level_label.visible = true
-	level_label.text = "BOSS FIGHT!"
+	# Fade transition for boss entrance
 	var tween := create_tween()
-	tween.tween_interval(2.0)
+	tween.tween_property(fade_overlay, "color:a", 0.6, 0.3)
+	tween.tween_callback(func():
+		level_label.visible = true
+		level_label.text = "BOSS FIGHT!"
+		# Spawn boss during the dark
+		var boss := Node2D.new()
+		boss.set_script(BossScript)
+		var ground_y: float = _get_ground_y_approx(GameState.arena_center_x + 300)
+		boss.global_position = Vector2(GameState.arena_center_x + 400, ground_y - 20)
+		boss.camera_ref = camera
+		boss.target_x = GameState.arena_center_x
+		villains_container.add_child(boss)
+	)
+	tween.tween_interval(1.5)
 	tween.tween_callback(func(): level_label.visible = false)
+	tween.tween_property(fade_overlay, "color:a", 0.0, 0.4)
 
 
 func _spawn_shield_break_effect(pos: Vector2) -> void:
