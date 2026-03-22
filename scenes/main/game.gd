@@ -22,6 +22,10 @@ var screen_shake_decay: float = 0.9
 var power_up_rain_timer: float = 5.0
 var fade_overlay: ColorRect = null
 var camera_target_x: float = 640.0
+var trauma: float = 0.0  # 0.0-1.0 trauma-based shake
+var hitstop_timer: float = 0.0
+var accuracy_streak: int = 0  # Bombs that hit in a row
+var accuracy_multiplier: float = 1.0
 
 
 func _ready() -> void:
@@ -123,16 +127,27 @@ func _physics_process(delta: float) -> void:
 		camera.global_position.x = lerp(camera.global_position.x, camera_target_x, 0.04)
 	camera.global_position.y = lerp(camera.global_position.y, 360.0, 0.05)
 
-	# Screen shake
-	if screen_shake_amount > 0.5:
+	# Hit stop (brief freeze on impact)
+	if hitstop_timer > 0:
+		hitstop_timer -= delta
+		Engine.time_scale = 0.05
+		return
+	elif Engine.time_scale < 1.0:
+		Engine.time_scale = 1.0
+
+	# Trauma-based screen shake (intensity = trauma^2)
+	trauma = maxf(0.0, trauma - delta * 1.5)  # Decay
+	if trauma > 0.01:
+		var shake_intensity: float = trauma * trauma * 10.0
 		camera.offset = Vector2(
-			randf_range(-screen_shake_amount, screen_shake_amount),
-			randf_range(-screen_shake_amount, screen_shake_amount)
+			randf_range(-shake_intensity, shake_intensity),
+			randf_range(-shake_intensity, shake_intensity)
 		)
-		screen_shake_amount *= screen_shake_decay
 	else:
 		camera.offset = Vector2.ZERO
-		screen_shake_amount = 0.0
+
+	# Camera zoom effects (smooth return to normal)
+	camera.zoom = camera.zoom.lerp(Vector2.ONE, 0.03)
 
 	# Update ground collider position to follow camera
 	var ground_y := 590.0
@@ -213,11 +228,21 @@ func _on_villain_killed(pos: Vector2, points: int) -> void:
 	GameState.total_villains_killed += 1
 	GameState.villains_killed_this_level += 1
 	GameState.register_kill()
+	accuracy_streak += 1
+	accuracy_multiplier = minf(1.0 + float(accuracy_streak) * 0.25, 3.0)
 	GameState.add_score(points)
 	var multiplier: int = GameState.get_combo_multiplier()
 	_spawn_score_popup(pos, points * multiplier)
 
-	# Spawn a mini explosion at the villain's death position
+	# JUICE: hit stop + kill flash + trauma
+	hitstop_timer = 0.03  # Brief freeze frame
+	trauma = minf(trauma + 0.25, 1.0)
+	# Kill flash (brief white overlay)
+	if fade_overlay:
+		fade_overlay.color = Color(1, 1, 1, 0.15)
+		var flash_tween := create_tween()
+		flash_tween.tween_property(fade_overlay, "color:a", 0.0, 0.08)
+
 	_spawn_villain_death_effect(pos)
 
 	# Chance to spawn power-up
@@ -268,10 +293,17 @@ func _on_bomb_hit_ground(pos: Vector2, bomb_scale: float, was_nuke: bool) -> voi
 	var blast_radius: float
 
 	if was_nuke:
-		# NUKE — kills everything on screen
+		# NUKE — kills everything on screen with DRAMA
 		blast_radius = 800.0
 		visual_scale = 1.8
-		screen_shake_amount = 10.0
+		trauma = 1.0
+		# Slow motion for nuke impact
+		Engine.time_scale = 0.2
+		var slowmo_tween := create_tween().set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+		slowmo_tween.tween_interval(0.3)
+		slowmo_tween.tween_property(Engine, "time_scale", 1.0, 0.2)
+		# Camera zoom in
+		camera.zoom = Vector2(1.15, 1.15)
 	else:
 		# Normal bomb — base 100px, scales with speed, mega bomb doubles
 		var base: float = 100.0
@@ -290,6 +322,11 @@ func _on_bomb_hit_ground(pos: Vector2, bomb_scale: float, was_nuke: bool) -> voi
 			if dist < blast_radius:
 				villain.hit_by_bomb()
 				kill_count += 1
+
+	# Accuracy streak: miss resets, hits counted in _on_villain_killed
+	if kill_count == 0 and not was_nuke:
+		accuracy_streak = 0
+		accuracy_multiplier = 1.0
 
 	# Nuke voice feedback
 	if was_nuke and kill_count > 0:

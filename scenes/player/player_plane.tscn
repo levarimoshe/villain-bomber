@@ -1,27 +1,25 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=3 uid="uid://djcpwtbmk554l"]
 
-[ext_resource type="Script" path="res://scenes/player/player_plane.gd" id="1"]
-[ext_resource type="Script" path="res://scenes/player/player_plane_draw.gd" id="2"]
+[ext_resource type="Script" uid="uid://bmey1e1xgvtlr" path="res://scenes/player/player_plane.gd" id="1"]
+[ext_resource type="Script" uid="uid://dpsl60mw1mvsu" path="res://scenes/player/player_plane_draw.gd" id="2"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_plane"]
-radius = 10.0
 height = 70.0
 
-[node name="PlayerPlane" type="CharacterBody2D"]
-collision_layer = 1
+[node name="PlayerPlane" type="CharacterBody2D" unique_id=1678503025]
 collision_mask = 8
 script = ExtResource("1")
 
-[node name="PlaneVisual" type="Node2D" parent="."]
+[node name="PlaneVisual" type="Node2D" parent="." unique_id=652344639]
 script = ExtResource("2")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1529478240]
 rotation = 1.5708
 shape = SubResource("CapsuleShape2D_plane")
 
-[node name="BombDropPoint" type="Marker2D" parent="."]
+[node name="BombDropPoint" type="Marker2D" parent="." unique_id=2050058600]
 position = Vector2(0, 18)
 
-[node name="BombCooldownTimer" type="Timer" parent="."]
+[node name="BombCooldownTimer" type="Timer" parent="." unique_id=2014922875]
 wait_time = 0.3
 one_shot = true

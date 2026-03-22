@@ -94,6 +94,21 @@ func _draw() -> void:
 	var greet_font: Font = ThemeDB.fallback_font
 	draw_string(greet_font, Vector2(size.x / 2.0, 30), greeting, HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color(1, 1, 1, 0.35))
 
+	# === ACCURACY STREAK (bottom center-right) ===
+	var game_node: Node = get_tree().current_scene
+	if game_node and game_node.has_method("_get_ground_y_approx"):
+		var streak: int = game_node.accuracy_streak
+		if streak >= 2:
+			var streak_font: Font = ThemeDB.fallback_font
+			var streak_text: String = "STREAK x%.1f" % game_node.accuracy_multiplier
+			var streak_color := Color(0.3, 1, 0.3, 0.7) if streak < 5 else Color(1, 0.8, 0.1, 0.9)
+			draw_string(streak_font, Vector2(size.x / 2.0 + 120, size.y - 15), streak_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, streak_color)
+
+	# === RAPID FIRE LEVEL ===
+	if GameState.has_rapid_fire and GameState.rapid_fire_level > 1:
+		var rf_font: Font = ThemeDB.fallback_font
+		draw_string(rf_font, Vector2(size.x - 80, size.y - 15), "RF Lv.%d" % GameState.rapid_fire_level, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 0.8, 0.1, 0.7))
+
 	# === KILL COUNTER (bottom left) ===
 	var font2: Font = ThemeDB.fallback_font
 	var kill_text: String = "KILLS: %d" % GameState.total_villains_killed

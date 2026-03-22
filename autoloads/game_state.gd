@@ -17,6 +17,7 @@ const COMBO_WINDOW: float = 2.0
 var has_shield: bool = false
 var shield_timer: float = 0.0
 var has_rapid_fire: bool = false
+var rapid_fire_level: int = 0  # 0=none, 1=3 bombs, 2=5 bombs, 3=7 bombs
 var rapid_fire_timer: float = 0.0
 var has_mega_bomb: bool = false
 var mega_bomb_timer: float = 0.0
@@ -171,6 +172,7 @@ func lose_life() -> void:
 func _clear_all_powerups() -> void:
 	has_shield = false
 	has_rapid_fire = false
+	rapid_fire_level = 0
 	has_mega_bomb = false
 
 
@@ -195,7 +197,9 @@ func activate_power_up(type: String) -> void:
 			SoundManager.speak("Shield activated")
 		"rapid_fire":
 			has_rapid_fire = true
-			SoundManager.speak("Rapid fire!")
+			rapid_fire_level = mini(rapid_fire_level + 1, 3)
+			var level_names: Array = ["", "Rapid fire!", "Double rapid!", "Maximum firepower!"]
+			SoundManager.speak(level_names[rapid_fire_level])
 		"mega_bomb":
 			has_mega_bomb = true
 			SoundManager.speak("Mega bomb!")

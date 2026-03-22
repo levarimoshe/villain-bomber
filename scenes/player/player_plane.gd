@@ -109,12 +109,13 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 
-	# Visual: flip + bank angle
-	visual.scale.x = float(facing)
-	# Bank into the turn — steeper when turning harder
-	var bank_amount: float = _angle_diff(move_angle, 0.0) * 0.15 * float(facing)
-	bank_amount += velocity.y * 0.0008
-	visual.rotation = lerp(visual.rotation, bank_amount, 0.06)
+	# Smooth rotation — no instant scale flip!
+	# Target rotation based on move_angle + vertical banking
+	var target_rot: float = move_angle * 0.3 + velocity.y * 0.001
+	visual.rotation = lerp(visual.rotation, target_rot, 0.04)
+	# Smooth scale transition (not instant flip)
+	var target_scale_x: float = float(facing)
+	visual.scale.x = lerp(visual.scale.x, target_scale_x, 0.04)
 
 	propeller_angle += delta * 30.0
 
@@ -163,7 +164,9 @@ func _drop_bomb() -> void:
 	if not GameState.has_rapid_fire:
 		bomb_cooldown.start()
 	else:
-		bomb_cooldown.wait_time = 0.12
+		# Faster cooldown at higher rapid fire levels
+		var rf_cooldowns: Array = [0.3, 0.12, 0.08, 0.05]
+		bomb_cooldown.wait_time = rf_cooldowns[GameState.rapid_fire_level]
 		bomb_cooldown.start()
 		bomb_cooldown.wait_time = 0.3
 
@@ -171,11 +174,15 @@ func _drop_bomb() -> void:
 	var bomb_scale: float = 1.0 + speed_factor * 0.8
 
 	if GameState.has_rapid_fire:
-		for i in range(3):
+		# Bomb count scales with rapid fire level: 3, 5, 7
+		var bomb_count: int = 1 + GameState.rapid_fire_level * 2
+		var half: int = bomb_count / 2
+		for i in range(bomb_count):
 			var bomb := BombScene.instantiate()
-			var offset_x: float = float(i - 1) * 15.0
-			bomb.global_position = bomb_drop_point.global_position + Vector2(offset_x * facing, abs(i - 1) * 5.0)
-			var spread_angle: float = float(i - 1) * 0.15
+			var offset_idx: int = i - half
+			var offset_x: float = float(offset_idx) * 12.0
+			bomb.global_position = bomb_drop_point.global_position + Vector2(offset_x * facing, abs(offset_idx) * 3.0)
+			var spread_angle: float = float(offset_idx) * 0.1
 			var base_vel := Vector2(velocity.x * 0.7, 50.0)
 			bomb.initial_velocity = base_vel.rotated(spread_angle)
 			bomb.speed_scale = bomb_scale

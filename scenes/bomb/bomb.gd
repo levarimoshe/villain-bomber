@@ -43,6 +43,16 @@ func _physics_process(delta: float) -> void:
 
 	$BombVisual.queue_redraw()
 
+	# Direct hit check for boss (Node2D, not Area2D — area_entered won't work)
+	for node in get_tree().get_nodes_in_group(&"boss"):
+		if is_instance_valid(node) and node.has_method("hit_by_bomb"):
+			var dist: float = global_position.distance_to(node.global_position)
+			if dist < 60.0:  # Direct hit range for boss
+				node.hit_by_bomb()
+				Events.bomb_hit_ground.emit(global_position, speed_scale, is_nuke)
+				queue_free()
+				return
+
 	if position.y > 1000:
 		queue_free()
 
