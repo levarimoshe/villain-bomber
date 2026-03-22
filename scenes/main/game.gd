@@ -387,7 +387,7 @@ func _finish_level_transition() -> void:
 
 
 func _on_level_changed(_level: int) -> void:
-	pass # HUD handles display
+	WeaponSystem.check_unlocks()
 
 
 func _on_boss_defeated(_level: int) -> void:

@@ -79,10 +79,13 @@ func _draw() -> void:
 			mission_text += " (%d/%d)" % [Mission.mission_progress, Mission.mission_target]
 		draw_string(font3, Vector2(size.x / 2.0, 75), mission_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 16, mission_color)
 
-	# === MACHINE GUN HINT (level 3+) ===
-	if GameState.current_level >= 3:
-		var mg_font: Font = ThemeDB.fallback_font
-		draw_string(mg_font, Vector2(size.x / 2.0, size.y - 15), "Hold M: Machine Gun", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color(0.6, 0.6, 0.6, 0.4))
+	# === CURRENT WEAPON (bottom center) ===
+	var wep_font: Font = ThemeDB.fallback_font
+	var wep_name: String = WeaponSystem.get_current_name()
+	var wep_color: Color = WeaponSystem.get_current_color()
+	draw_string(wep_font, Vector2(size.x / 2.0, size.y - 30), "[Q] " + wep_name + " [E]", HORIZONTAL_ALIGNMENT_CENTER, -1, 18, Color(wep_color.r, wep_color.g, wep_color.b, 0.8))
+	# Controls hint
+	draw_string(wep_font, Vector2(size.x / 2.0, size.y - 12), "M: Machine Gun  |  Space: Fire Weapon", HORIZONTAL_ALIGNMENT_CENTER, -1, 11, Color(0.6, 0.6, 0.6, 0.35))
 
 	# === GREETING (top center) ===
 	var hour: int = Time.get_datetime_dict_from_system()["hour"]
