@@ -140,8 +140,8 @@ func _physics_process(delta: float) -> void:
 			camera_target_x += (player_offset - 200) * 0.5
 		elif player_offset < -200:
 			camera_target_x += (player_offset + 200) * 0.5
-		camera.global_position.x = lerp(camera.global_position.x, camera_target_x, 0.06)
-	camera.global_position.y = lerp(camera.global_position.y, 360.0, 0.05)
+		camera.global_position.x = lerp(camera.global_position.x, camera_target_x, 0.035)
+	camera.global_position.y = lerp(camera.global_position.y, 360.0, 0.03)
 
 	# Hit stop (brief freeze on impact)
 	if hitstop_timer > 0:
@@ -373,16 +373,16 @@ func _start_level_transition() -> void:
 	spawn_timer.stop()
 	SoundManager.play_levelup()
 
-	# Smooth fade out → show text → fade in
+	# Smooth cinematic fade
 	var tween := create_tween()
-	tween.tween_property(fade_overlay, "color:a", 0.7, 0.4)  # Fade to dark
+	tween.tween_property(fade_overlay, "color:a", 0.8, 0.6).set_ease(Tween.EASE_IN)
 	tween.tween_callback(func():
 		level_label.visible = true
 		level_label.text = "LEVEL %d COMPLETE!" % GameState.current_level
 	)
-	tween.tween_interval(1.5)  # Hold
+	tween.tween_interval(1.8)
 	tween.tween_callback(func(): level_label.visible = false)
-	tween.tween_property(fade_overlay, "color:a", 0.0, 0.4)  # Fade back in
+	tween.tween_property(fade_overlay, "color:a", 0.0, 0.6).set_ease(Tween.EASE_OUT)
 	tween.tween_callback(_finish_level_transition)
 
 
